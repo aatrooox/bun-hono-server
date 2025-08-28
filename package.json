@@ -1,0 +1,28 @@
+{
+  "name": "bun-hono-server",
+  "version": "1.0.0",
+  "description": "A fast and modern web server template built with Bun and Hono",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outfile=dist/index.js --target=bun",
+    "start": "bun run dist/index.js",
+    "db:generate": "drizzle-kit generate:sqlite",
+    "db:migrate": "bun run src/db/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "hono": "^4.9.4",
+    "drizzle-orm": "^0.30.0",
+    "@hono/zod-validator": "^0.2.0",
+    "zod": "^3.22.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "drizzle-kit": "^0.20.0"
+  }
+}
