@@ -4,41 +4,46 @@ import {
   corsConfig, 
   loggerConfig, 
   responseMiddleware, 
-  errorMiddleware 
+  errorHandler,
+  globalRateLimit,
+  securityHeaders,
+  requestSizeLimit
 } from './middleware'
 import api from './routes'
 import { initDatabase } from './db/migrate'
 import type { AppContext } from './types'
+import { logger } from './utils/logger'
+import { UploadTestPage } from './views/UploadTest'
 
 // 创建 Hono 应用
 const app = new Hono<AppContext>()
 
 // 全局中间件（顺序很重要！）
 app.use('*', corsConfig)          // CORS 必须在最前面
+app.use('*', securityHeaders)     // 安全头部
+app.use('*', requestSizeLimit())  // 请求大小限制
+app.use('*', globalRateLimit)     // 全局限流
 app.use('*', loggerConfig)        // 日志记录
 app.use('*', responseMiddleware)  // 响应工具
 
 // 设置错误处理
-app.onError(async (err, c) => {
-  console.error('🚨 全局错误:', err)
-  
-  // 处理 Zod 验证错误
-  if (err.name === 'ZodError' || (err as any).issues) {
-    const zodError = err as any
-    const messages = zodError.issues?.map((issue: any) => 
-      `${issue.path?.join?.('.') || 'field'}: ${issue.message}`
-    ).join(', ') || '参数验证失败'
-    
-    return c.get('error')(422, messages)
-  }
-  
-  // 其他错误使用默认处理
-  return c.get('error')(500, '服务器内部错误')
-})
+app.onError(errorHandler)
 
 // 静态文件服务
 app.use('/static/*', serveStatic({ root: './' }))
 app.use('/favicon.ico', serveStatic({ path: './favicon.ico' }))
+
+// 公共文件服务 (HTML测试页面等)
+app.use('/public/*', serveStatic({ root: './' }))
+
+// 上传文件访问（支持本地存储）
+app.use('/uploads/*', serveStatic({ 
+  root: './',
+  rewriteRequestPath: (path) => {
+    // 将 /uploads/* 路径重写为实际的上传目录路径
+    return path.replace(/^\/uploads/, './uploads')
+  }
+}))
 
 // API 路由
 app.route('/api', api)
@@ -49,8 +54,20 @@ app.get('/', (c) => {
     message: 'Welcome to Bun Hono Server!',
     version: '1.0.0',
     docs: '/api',
-    health: '/api/health'
+    health: '/api/health',
+    uploadTest: '/test-upload',
+    uploadTestJSX: '/test-upload-jsx'
   }, '服务器运行正常')
+})
+
+// 文件上传测试页面
+app.get('/test-upload', (c) => {
+  return c.redirect('/public/upload-test.html')
+})
+
+// JSX 版本的测试页面
+app.get('/test-upload-jsx', (c) => {
+  return c.html(UploadTestPage())
 })
 
 // 404 处理
@@ -59,9 +76,24 @@ app.notFound((c) => {
 })
 
 // 初始化数据库（启动时）
-initDatabase().catch(console.error)
+initDatabase()
+  .then(() => {
+    logger.info('Database initialized successfully')
+  })
+  .catch((error) => {
+    logger.error({ error }, 'Database initialization failed')
+    process.exit(1)
+  })
+
+// 启动日志
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
+logger.info({
+  port,
+  environment: process.env.NODE_ENV || 'development',
+  logLevel: process.env.LOG_LEVEL || 'debug'
+}, 'Server starting')
 
 export default {
-  port: 3000,
+  port,
   fetch: app.fetch,
 }

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { prettyJSON } from 'hono/pretty-json'
 import auth from './auth'
 import users from './users'
+import upload from './upload'
 
 // 创建 API 路由器
 const api = new Hono()
@@ -17,7 +18,8 @@ api.get('/', (c) => {
     description: 'A fast and modern web server built with Bun and Hono',
     endpoints: {
       auth: '/api/auth',
-      users: '/api/users'
+      users: '/api/users',
+      upload: '/api/upload'
     }
   }, 'API 服务正常运行')
 })
@@ -35,5 +37,7 @@ api.get('/health', (c) => {
 // 注册子路由
 api.route('/auth', auth)
 api.route('/users', users)
+api.route('/upload', upload)
+api.route('/upload', upload)
 
 export default api

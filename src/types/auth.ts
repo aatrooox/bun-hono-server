@@ -24,7 +24,12 @@ export const loginSchema = z.object({
 // 用户更新验证 Schema
 export const updateUserSchema = z.object({
   name: z.string().min(2, '姓名至少2位').max(20, '姓名不能超过20位').optional(),
-  email: z.string().email('邮箱格式不正确').optional()
+  nickname: z.string().min(1, '昵称不能为空').max(30, '昵称不能超过30位').optional(),
+  avatar: z.string().url('头像必须是有效的URL').optional(),
+  phone: z.string().regex(/^1[3-9]\d{9}$/, '手机号格式不正确').optional(),
+  gender: z.number().int().min(0).max(2, '性别取值范围为0-2').optional(),
+  birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '生日格式为YYYY-MM-DD').optional(),
+  bio: z.string().max(200, '个人简介不能超过200字').optional()
 })
 
 // 密码修改验证 Schema
@@ -44,12 +49,34 @@ export interface UserResponse {
   id: number
   email: string
   name: string
+  nickname?: string | null
+  avatar?: string | null
+  phone?: string | null
+  gender?: number | null
+  birthday?: string | null
+  bio?: string | null
+  status: number
   createdAt: string
   updatedAt: string
 }
 
-// 登录响应类型
+// 登录响应类型（新版双 token）
 export interface LoginResponse {
   user: UserResponse
-  token: string
+  accessToken: string
+  refreshToken: string
+  expiresIn: number // access token 过期时间（秒）
 }
+
+// token 刷新响应类型
+export interface RefreshTokenResponse {
+  accessToken: string
+  expiresIn: number // access token 过期时间（秒）
+}
+
+// refresh token 请求类型
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token 不能为空')
+})
+
+export type RefreshTokenRequest = z.infer<typeof refreshTokenSchema>

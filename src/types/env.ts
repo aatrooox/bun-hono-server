@@ -14,6 +14,13 @@ export interface AppContext {
       id: number
       email: string
       name: string
+      nickname?: string | null
+      avatar?: string | null
+      phone?: string | null
+      gender?: number | null
+      birthday?: string | null
+      bio?: string | null
+      status: number
     }
     jwtPayload?: {
       userId: number

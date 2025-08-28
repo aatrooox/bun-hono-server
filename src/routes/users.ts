@@ -11,12 +11,14 @@ import {
   type UserResponse
 } from '../types/auth'
 import { HTTPException } from 'hono/http-exception'
-import { authMiddleware } from '../middleware'
+import { authMiddleware, userRateLimit, strictRateLimit } from '../middleware'
+import type { AppContext } from '../types'
 
-const usersRouter = new Hono()
+const usersRouter = new Hono<AppContext>()
 
-// 所有用户路由都需要认证
+// 所有用户路由都需要认证和限流
 usersRouter.use('*', authMiddleware)
+usersRouter.use('*', userRateLimit)
 
 /**
  * 更新用户信息
@@ -29,16 +31,16 @@ usersRouter.patch('/me', zValidator('json', updateUserSchema), async (c) => {
     throw new HTTPException(401, { message: '用户信息不存在' })
   }
 
-  // 如果更新邮箱，检查是否已存在
-  if (updates.email && updates.email !== user.email) {
+  // 如果更新手机号，检查是否已存在
+  if (updates.phone && updates.phone !== user.phone) {
     const existingUser = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.email, updates.email))
+      .where(eq(users.phone, updates.phone))
       .get()
 
     if (existingUser) {
-      throw new HTTPException(422, { message: '邮箱已被使用' })
+      throw new HTTPException(422, { message: '手机号已被使用' })
     }
   }
 
@@ -54,6 +56,13 @@ usersRouter.patch('/me', zValidator('json', updateUserSchema), async (c) => {
       id: users.id,
       email: users.email,
       name: users.name,
+      nickname: users.nickname,
+      avatar: users.avatar,
+      phone: users.phone,
+      gender: users.gender,
+      birthday: users.birthday,
+      bio: users.bio,
+      status: users.status,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
     })
@@ -64,7 +73,7 @@ usersRouter.patch('/me', zValidator('json', updateUserSchema), async (c) => {
 /**
  * 修改密码
  */
-usersRouter.patch('/me/password', zValidator('json', changePasswordSchema), async (c) => {
+usersRouter.patch('/me/password', strictRateLimit, zValidator('json', changePasswordSchema), async (c) => {
   const user = c.get('user')
   const { oldPassword, newPassword } = c.req.valid('json') as ChangePasswordRequest
 
@@ -107,7 +116,7 @@ usersRouter.patch('/me/password', zValidator('json', changePasswordSchema), asyn
 /**
  * 删除账户
  */
-usersRouter.delete('/me', async (c) => {
+usersRouter.delete('/me', strictRateLimit, async (c) => {
   const user = c.get('user')
 
   if (!user) {

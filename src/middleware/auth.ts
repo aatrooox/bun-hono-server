@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { ErrorCodes } from '../types/api'
 
 /**
- * JWT 认证中间件
+ * JWT 认证中间件 - 使用 Access Token
  */
 export const authMiddleware = async (c: Context, next: Next) => {
   try {
@@ -18,15 +18,22 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
     const token = authHeader.substring(7) // 移除 "Bearer " 前缀
 
-    // 验证 token
-    const payload = JwtUtils.verifyToken(token)
+    // 验证 access token
+    const payload = JwtUtils.verifyAccessToken(token)
     
     // 查询用户信息
     const user = await db
       .select({
         id: users.id,
         email: users.email,
-        name: users.name
+        name: users.name,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        phone: users.phone,
+        gender: users.gender,
+        birthday: users.birthday,
+        bio: users.bio,
+        status: users.status
       })
       .from(users)
       .where(eq(users.id, payload.userId))
@@ -34,6 +41,11 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
     if (!user) {
       throw new HTTPException(401, { message: '用户不存在' })
+    }
+
+    // 检查用户状态
+    if (user.status !== 1) {
+      throw new HTTPException(401, { message: '用户账户已被禁用' })
     }
 
     // 将用户信息添加到上下文
@@ -69,19 +81,26 @@ export const optionalAuthMiddleware = async (c: Context, next: Next) => {
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
-      const payload = JwtUtils.verifyToken(token)
+      const payload = JwtUtils.verifyAccessToken(token)
       
       const user = await db
         .select({
           id: users.id,
           email: users.email,
-          name: users.name
+          name: users.name,
+          nickname: users.nickname,
+          avatar: users.avatar,
+          phone: users.phone,
+          gender: users.gender,
+          birthday: users.birthday,
+          bio: users.bio,
+          status: users.status
         })
         .from(users)
         .where(eq(users.id, payload.userId))
         .get()
 
-      if (user) {
+      if (user && user.status === 1) {
         c.set('user', user)
         c.set('jwtPayload', payload)
       }

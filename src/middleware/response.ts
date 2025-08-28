@@ -24,6 +24,7 @@ export class ResponseHelper {
 
 // 响应中间件 - 添加响应工具到上下文
 export const responseMiddleware = async (c: Context, next: Next) => {
+  console.log('response midleware')
   // 添加响应工具方法到上下文
   c.set('success', <T = any>(data: T, message?: string) => {
     return c.json(ResponseHelper.success(data, message))
@@ -50,5 +51,7 @@ declare module 'hono' {
       userId: number
       email: string
     }
+    files?: import('../types/upload').FileInfo[]
+    fields?: Record<string, string>
   }
 }

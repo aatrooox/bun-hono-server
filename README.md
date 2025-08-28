@@ -8,6 +8,8 @@
 - 🛡️ **类型安全**: 全栈 TypeScript，编译时错误检查
 - 🔐 **用户认证**: JWT 认证，密码加密，会话管理
 - 🗄️ **数据库集成**: SQLite + Drizzle ORM，类型安全的数据库操作
+- 📁 **文件上传**: 功能完整的文件上传系统，支持本地存储和对象存储
+- 🖼️ **图片处理**: 自动压缩、格式转换、尺寸调整、缩略图生成
 - 📝 **输入验证**: Zod schema 验证，统一错误处理
 - 🌐 **统一响应**: 标准化 API 响应格式和错误码
 - 🔧 **开发友好**: 热重载，完整的开发工具链
@@ -120,10 +122,50 @@ Content-Type: application/json
 }
 ```
 
-### 其他端点
+### 文件上传
 
-- `GET /api` - API 信息
-- `GET /api/health` - 健康检查
+#### 单文件上传
+```http
+POST /api/upload/single
+Authorization: Bearer <your-jwt-token>
+Content-Type: multipart/form-data
+
+# 基础上传
+file: <文件>
+
+# 图片处理参数
+quality: 80
+format: webp
+resize_width: 800
+resize_height: 600
+```
+
+#### 多文件上传
+```http
+POST /api/upload/multiple
+Authorization: Bearer <your-jwt-token>
+Content-Type: multipart/form-data
+
+file: <文件1>
+file: <文件2>
+quality: 75
+```
+
+#### 文件管理
+```http
+# 获取文件信息
+GET /api/upload/info/:path
+
+# 检查文件是否存在
+GET /api/upload/exists/:path
+
+# 删除文件
+DELETE /api/upload/:path
+```
+
+📚 **详细文档**: 查看 [UPLOAD_API.md](UPLOAD_API.md) 获取完整的文件上传API文档
+
+
 
 ## 🏗️ 项目结构
 
@@ -191,7 +233,109 @@ JWT_SECRET=your-super-secret-jwt-key-please-change-this-in-production
 # 服务器配置
 PORT=3000
 NODE_ENV=development
+
+# 日志配置
+LOG_LEVEL=debug           # 日志级别: trace, debug, info, warn, error
 ```
+
+## 📊 日志系统
+
+### 日志级别
+- `trace` - 最详细的调试信息
+- `debug` - 调试信息（开发环境默认）
+- `info` - 一般信息（生产环境默认）
+- `warn` - 警告信息
+- `error` - 错误信息
+
+### 日志存储位置
+
+**本地开发环境：**
+- 控制台输出：彩色格式化的日志，便于开发调试
+- 日志目录：`./logs/` （自动创建，目前仅预留）
+
+**生产环境：**
+- 控制台输出：JSON 格式的结构化日志
+- 建议配置：通过 Docker 或进程管理器收集日志到外部系统
+
+### 日志配置
+
+#### 基础配置
+```bash
+# 设置日志级别
+export LOG_LEVEL=info
+
+# 生产环境
+export NODE_ENV=production
+```
+
+#### 高级配置示例
+
+**1. 输出到文件（需要修改配置）：**
+```typescript
+// src/utils/logger.ts 中可以添加文件输出
+export const logger = pino({
+  level: logLevel,
+  transport: {
+    targets: [
+      {
+        target: 'pino/file',
+        options: { destination: './logs/app.log' }
+      },
+      {
+        target: 'pino-pretty',
+        options: { destination: 1 } // stdout
+      }
+    ]
+  }
+})
+```
+
+**2. 日志轮转（推荐生产环境）：**
+```bash
+# 使用 pm2 管理日志
+npm install -g pm2
+pm2 start ecosystem.config.js
+
+# 或使用 Docker 收集日志
+docker run -d --log-driver=json-file --log-opt max-size=100m --log-opt max-file=3
+```
+
+### 日志功能特性
+
+- ✅ **链路追踪**：每个请求有唯一 `requestId`
+- ✅ **结构化日志**：JSON 格式，便于分析和检索
+- ✅ **请求日志**：自动记录 HTTP 请求/响应信息
+- ✅ **错误追踪**：详细的错误堆栈和上下文
+- ✅ **性能监控**：请求响应时间统计
+- ✅ **模块日志**：支持按模块创建子日志器
+
+### 使用示例
+
+```typescript
+import { logger, Logger } from './utils/logger'
+
+// 基础使用
+logger.info('Server starting')
+logger.error({ error: err }, 'Database connection failed')
+
+// 模块日志
+const userLogger = new Logger('user')
+userLogger.info('User registered', { userId: 123 })
+
+// 业务日志
+userLogger.business('user_login', 123, { ip: '192.168.1.1' })
+
+// 数据库日志
+userLogger.dbQuery('SELECT * FROM users WHERE id = ?', [123], 45)
+```
+
+### 生产环境最佳实践
+
+1. **日志级别**：设置为 `info` 或 `warn`
+2. **日志收集**：使用 ELK Stack、Fluentd 或云服务
+3. **日志轮转**：防止日志文件过大
+4. **敏感信息**：避免记录密码、token 等敏感数据
+5. **监控告警**：对 ERROR 级别日志设置告警
 
 ## 📖 API 响应格式
 
