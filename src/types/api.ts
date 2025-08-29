@@ -6,7 +6,8 @@ export const ErrorCodes = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   VALIDATION_ERROR: 422,
-  INTERNAL_ERROR: 500
+  INTERNAL_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503
 } as const
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes]
@@ -36,5 +37,6 @@ export const ResponseMessages = {
   FORBIDDEN: '权限不足',
   NOT_FOUND: '资源不存在',
   VALIDATION_ERROR: '参数验证失败',
-  INTERNAL_ERROR: '服务器内部错误'
+  INTERNAL_ERROR: '服务器内部错误',
+  SERVICE_UNAVAILABLE: '服务暂时不可用'
 } as const

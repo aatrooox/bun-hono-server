@@ -14,6 +14,7 @@ import { initDatabase } from './db/migrate'
 import type { AppContext } from './types'
 import { logger } from './utils/logger'
 import { UploadTestPage } from './views/UploadTest'
+import { Config } from './config'
 
 // 创建 Hono 应用
 const app = new Hono<AppContext>()
@@ -52,8 +53,8 @@ app.route('/api', api)
 app.get('/', (c) => {
   return c.get('success')({
     message: 'Welcome to Bun Hono Server!',
-    version: '1.0.0',
-    docs: '/api',
+    version: Config.APP_VERSION,
+    api: '/api',
     health: '/api/health',
     uploadTest: '/test-upload',
     uploadTestJSX: '/test-upload-jsx'

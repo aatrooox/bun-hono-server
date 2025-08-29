@@ -1,0 +1,85 @@
+# Caddy 配置示例
+# 将此配置添加到您的 Caddyfile 中
+
+# 基本反向代理配置
+your-domain.com {
+    # 反向代理到 Bun Hono 应用
+    reverse_proxy localhost:3000 {
+        # 健康检查
+        health_uri /api/health
+        health_interval 30s
+        health_timeout 10s
+        
+        # 请求头处理
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+    
+    # 日志记录
+    log {
+        output file /var/log/caddy/bun-hono-server.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        format json
+    }
+    
+    # 启用压缩
+    encode gzip zstd
+    
+    # 安全头部
+    header {
+        # 删除服务器版本信息
+        -Server
+        
+        # 安全相关头部
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        
+        # HTTPS 安全传输
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+    
+    # 静态文件缓存 (如果使用本地文件存储)
+    @static {
+        path /uploads/* /static/*
+    }
+    handle @static {
+        header Cache-Control "public, max-age=31536000"
+        reverse_proxy localhost:3000
+    }
+    
+    # API 路由不缓存
+    @api {
+        path /api/*
+    }
+    handle @api {
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        reverse_proxy localhost:3000
+    }
+}
+
+# 如果需要 www 重定向
+www.your-domain.com {
+    redir https://your-domain.com{uri} permanent
+}
+
+# API 子域名配置 (可选)
+api.your-domain.com {
+    reverse_proxy localhost:3000 {
+        health_uri /api/health
+    }
+    
+    # API 专用的 CORS 和安全配置
+    header {
+        Access-Control-Allow-Origin "https://your-frontend-domain.com"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        Access-Control-Allow-Credentials true
+    }
+}

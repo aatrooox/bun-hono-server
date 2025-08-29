@@ -3,6 +3,9 @@ import { prettyJSON } from 'hono/pretty-json'
 import auth from './auth'
 import users from './users'
 import upload from './upload'
+import health from './health'
+import cache from './cache'
+import openapi from './openapi'
 
 // 创建 API 路由器
 const api = new Hono()
@@ -19,25 +22,25 @@ api.get('/', (c) => {
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
-      upload: '/api/upload'
+      upload: '/api/upload',
+      health: '/api/health',
+      cache: '/api/cache',
+      openapi: '/api/openapi'
+    },
+    documentation: {
+      openapi: '/api/openapi/openapi.json',
+      info: '/api/openapi/info',
+      download: '/api/openapi/download'
     }
   }, 'API 服务正常运行')
-})
-
-// 健康检查
-api.get('/health', (c) => {
-  return c.get('success')({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  }, '服务健康状态正常')
 })
 
 // 注册子路由
 api.route('/auth', auth)
 api.route('/users', users)
 api.route('/upload', upload)
-api.route('/upload', upload)
+api.route('/health', health)
+api.route('/cache', cache)
+api.route('/openapi', openapi)
 
 export default api

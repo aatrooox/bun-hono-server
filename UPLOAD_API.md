@@ -31,7 +31,7 @@ UPLOAD_SCAN_FILE_CONTENT=true       # 扫描文件内容
 
 # 本地存储配置
 UPLOAD_LOCAL_DIR=./uploads
-UPLOAD_LOCAL_BASE_URL=http://localhost:4778/static/uploads
+UPLOAD_LOCAL_BASE_URL=http://localhost:4778/uploads
 
 # 腾讯云COS配置（可选）
 COS_SECRET_ID=your-secret-id

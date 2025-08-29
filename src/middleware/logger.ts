@@ -1,9 +1,9 @@
 import { Context, Next } from 'hono'
-import { Logger } from '../utils/logger'
+import { CustomLogger } from '../utils/logger'
 import { randomUUID } from 'crypto'
 
 // 创建日志实例
-const appLogger = new Logger('app')
+const appLogger = new CustomLogger('app')
 
 /**
  * 增强的日志中间件
@@ -28,7 +28,7 @@ export const loggerConfig = async (c: Context, next: Next) => {
   }
   
   // 记录请求开始
-  appLogger.info(`Request started`, {
+  appLogger.info({
     requestId,
     req: {
       method: req.method,
@@ -37,14 +37,14 @@ export const loggerConfig = async (c: Context, next: Next) => {
       contentType: req.headers['content-type'],
       ip: req.ip
     }
-  })
+  }, `Request started`)
   
   try {
     await next()
   } catch (error) {
     // 记录请求错误
     const duration = Date.now() - start
-    appLogger.error(`Request failed`, {
+    appLogger.error({
       requestId,
       error: {
         name: error instanceof Error ? error.name : 'Unknown',
@@ -52,7 +52,7 @@ export const loggerConfig = async (c: Context, next: Next) => {
         stack: error instanceof Error ? error.stack : undefined
       },
       duration: `${duration}ms`
-    })
+    }, `Request failed`)
     throw error
   }
   
@@ -67,7 +67,7 @@ export const loggerConfig = async (c: Context, next: Next) => {
   
   // 记录请求完成
   const level = res.status >= 400 ? 'warn' : 'info'
-  appLogger[level](`Request completed`, {
+  appLogger[level]({
     requestId,
     req: {
       method: req.method,
@@ -79,7 +79,7 @@ export const loggerConfig = async (c: Context, next: Next) => {
       contentType: res.headers['content-type']
     },
     duration: `${duration}ms`
-  })
+  }, `Request completed`)
   
   // 添加响应头包含请求ID（便于调试）
   c.res.headers.set('X-Request-ID', requestId)

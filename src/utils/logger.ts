@@ -14,57 +14,34 @@ const isProduction = process.env.NODE_ENV === 'production'
 const logFileEnabled = process.env.LOG_FILE_ENABLED === 'true'
 const logErrorFileEnabled = process.env.LOG_ERROR_FILE === 'true'
 
-// 创建日志器
-let loggerInstance: pino.Logger
-
-// 创建日志流配置
-const createLogStreams = () => {
-  const streams: any[] = []
-  
-  if (isProduction || logFileEnabled) {
-    // 控制台输出
-    if (isProduction) {
-      // 生产环境：JSON格式输出到控制台
-      streams.push({ stream: process.stdout })
-    }
-    
-    // 文件输出（生产环境或明确启用时）
-    if (isProduction || logFileEnabled) {
-      streams.push({ stream: pino.destination(resolve(logDir, 'app.log')) })
-    }
-    
-    // 错误日志文件（生产环境或明确启用时）
-    if (isProduction || logErrorFileEnabled) {
-      streams.push({ 
-        level: 'error',
-        stream: pino.destination(resolve(logDir, 'error.log')) 
-      })
-    }
+// 创建统一的日志配置
+const baseConfig = {
+  level: logLevel,
+  base: isProduction ? {
+    pid: process.pid,
+    hostname: process.env.HOSTNAME || 'unknown',
+    service: 'bun-hono-server'
+  } : undefined,
+  timestamp: pino.stdTimeFunctions.isoTime,
+  redact: {
+    paths: ['password', 'token', 'authorization'],
+    remove: true
   }
-  
-  return streams
 }
 
-if (isProduction) {
-  // 生产环境：JSON格式，文件输出
-  loggerInstance = pino({
-    level: logLevel,
-    base: {
-      pid: process.pid,
-      hostname: process.env.HOSTNAME || 'unknown',
-      service: 'bun-hono-server'
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    redact: {
-      paths: ['password', 'token', 'authorization'],
-      remove: true
-    }
-  }, pino.multistream(createLogStreams()))
-} else if (logFileEnabled) {
-  // 开发环境但启用文件输出：美化控制台 + 文件输出
-  const streams: any[] = [
-    // 美化的控制台输出
-    {
+// 创建日志流配置
+const createStreams = () => {
+  const streams: any[] = []
+  
+  // 控制台输出（美化输出用于开发环境，JSON输出用于生产环境）
+  if (isProduction) {
+    streams.push({
+      level: 'trace',
+      stream: process.stdout
+    })
+  } else {
+    streams.push({
+      level: 'trace',
       stream: pino.transport({
         target: 'pino-pretty',
         options: {
@@ -75,43 +52,36 @@ if (isProduction) {
           levelFirst: true,
         }
       })
-    },
-    // 文件输出（JSON格式）
-    { stream: pino.destination(resolve(logDir, 'app.log')) }
-  ]
-  
-  // 错误日志文件
-  if (logErrorFileEnabled) {
-    streams.push({ 
-      level: 'error',
-      stream: pino.destination(resolve(logDir, 'error.log')) 
     })
   }
   
-  loggerInstance = pino({
-    level: logLevel,
-    timestamp: pino.stdTimeFunctions.isoTime,
-    redact: {
-      paths: ['password', 'token', 'authorization'],
-      remove: true
-    }
-  }, pino.multistream(streams))
-} else {
-  // 开发环境：仅美化控制台输出
-  loggerInstance = pino({
-    level: logLevel,
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'yyyy-mm-dd HH:MM:ss',
-        ignore: 'pid,hostname',
-        singleLine: false,
-        levelFirst: true,
-      }
-    }
-  })
+  // 普通日志文件输出（info级别及以上，但排除error级别）
+  if (logFileEnabled) {
+    streams.push({
+      level: 'info',
+      stream: pino.destination({
+        dest: resolve(logDir, 'app.log'),
+        sync: false
+      })
+    })
+  }
+  
+  // 错误日志文件输出（仅error级别）
+  if (logErrorFileEnabled) {
+    streams.push({
+      level: 'error',
+      stream: pino.destination({
+        dest: resolve(logDir, 'error.log'),
+        sync: false
+      })
+    })
+  }
+  
+  return streams
 }
+
+// 创建主日志器
+const loggerInstance = pino(baseConfig, pino.multistream(createStreams()))
 
 export const logger = loggerInstance
 
@@ -162,50 +132,60 @@ export const createProductionLoggerWithRotation = () => {
 }
 
 // 日志工具类
-export class Logger {
+export class CustomLogger {
   private logger: pino.Logger
 
   constructor(module?: string) {
     this.logger = module ? createChildLogger(module) : logger
   }
 
-  info(msg: string, obj?: any) {
-    if (obj) {
-      this.logger.info(obj, msg)
+  info(obj: any, msg?: string): void
+  info(msg: string): void
+  info(objOrMsg: any, msg?: string) {
+    if (typeof objOrMsg === 'string' && msg === undefined) {
+      this.logger.info(objOrMsg)
     } else {
-      this.logger.info(msg)
+      this.logger.info(objOrMsg, msg || '')
     }
   }
 
-  error(msg: string, obj?: any) {
-    if (obj) {
-      this.logger.error(obj, msg)
+  error(obj: any, msg?: string): void
+  error(msg: string): void
+  error(objOrMsg: any, msg?: string) {
+    if (typeof objOrMsg === 'string' && msg === undefined) {
+      this.logger.error(objOrMsg)
     } else {
-      this.logger.error(msg)
+      this.logger.error(objOrMsg, msg || '')
     }
   }
 
-  warn(msg: string, obj?: any) {
-    if (obj) {
-      this.logger.warn(obj, msg)
+  warn(obj: any, msg?: string): void
+  warn(msg: string): void
+  warn(objOrMsg: any, msg?: string) {
+    if (typeof objOrMsg === 'string' && msg === undefined) {
+      this.logger.warn(objOrMsg)
     } else {
-      this.logger.warn(msg)
+      this.logger.warn(objOrMsg, msg || '')
     }
   }
 
-  debug(msg: string, obj?: any) {
-    if (obj) {
-      this.logger.debug(obj, msg)
+  debug(obj: any, msg?: string): void
+  debug(msg: string): void
+  debug(objOrMsg: any, msg?: string) {
+    if (typeof objOrMsg === 'string' && msg === undefined) {
+      this.logger.debug(objOrMsg)
     } else {
-      this.logger.debug(msg)
+      this.logger.debug(objOrMsg, msg || '')
     }
   }
 
-  trace(msg: string, obj?: any) {
-    if (obj) {
-      this.logger.trace(obj, msg)
+  trace(obj: any, msg?: string): void
+  trace(msg: string): void
+  trace(objOrMsg: any, msg?: string) {
+    if (typeof objOrMsg === 'string' && msg === undefined) {
+      this.logger.trace(objOrMsg)
     } else {
-      this.logger.trace(msg)
+      this.logger.trace(objOrMsg, msg || '')
     }
   }
 

@@ -6,8 +6,11 @@
 import { Context, Next } from 'hono'
 import { FileValidationError } from '../types/upload'
 import { logger } from '../utils/logger'
+import { getUploadConfig, getUploadSecurityConfig } from '../config/upload'
 
 const securityLogger = logger.child({ module: 'upload-security' })
+const uploadConfig = getUploadConfig()
+const securityConfig = getUploadSecurityConfig()
 
 /**
  * 文件上传安全检查中间件
@@ -18,7 +21,7 @@ export const uploadSecurityMiddleware = async (c: Context, next: Next) => {
     const contentLength = c.req.header('content-length')
     if (contentLength) {
       const size = parseInt(contentLength, 10)
-      const maxSize = 50 * 1024 * 1024 // 50MB 硬限制
+      const maxSize = uploadConfig.maxFileSize // 使用配置中的最大文件大小
       
       if (size > maxSize) {
         securityLogger.warn({
@@ -91,7 +94,7 @@ export const uploadSecurityMiddleware = async (c: Context, next: Next) => {
  * 实际生产中应该使用Redis等外部存储
  */
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
-const RATE_LIMIT_WINDOW = 60 * 1000 // 1分钟
+const RATE_LIMIT_WINDOW = 60 * 1000 // 1分钟 - 使用固定值，不再依赖rate-limit配置
 const RATE_LIMIT_MAX_REQUESTS = 30 // 每分钟最多30个请求
 
 async function isRateLimited(ip: string): Promise<boolean> {

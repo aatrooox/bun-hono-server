@@ -1,27 +1,28 @@
 import { Context, Next } from 'hono'
 import { secureHeaders } from 'hono/secure-headers'
 import { HTTPException } from 'hono/http-exception'
-import { Logger } from '../utils/logger'
+import { CustomLogger } from '../utils/logger'
+import { requestSizeConfig } from '../config/rate-limit'
 
-const logger = new Logger('security')
+const logger = new CustomLogger('security')
 
 /**
  * 安全头部配置
  * 使用Hono官方的secure-headers中间件
  */
 export const securityHeaders = secureHeaders({
-  // 内容安全策略
+  // 内容安全策略 - 放宽策略以避免干扰API认证
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'", "'unsafe-inline'"],
     styleSrc: ["'self'", "'unsafe-inline'"],
     imgSrc: ["'self'", "data:", "https:"],
-    connectSrc: ["'self'"],
+    connectSrc: ["'self'", "https:"], // 允许HTTPS连接
     fontSrc: ["'self'"],
     objectSrc: ["'none'"],
     mediaSrc: ["'self'"],
-    frameSrc: ["'none'"],
-    upgradeInsecureRequests: []
+    frameSrc: ["'none'"]
+    // 移除 upgradeInsecureRequests 以避免干扰开发环境
   },
   
   // XSS防护
@@ -33,13 +34,15 @@ export const securityHeaders = secureHeaders({
   // 点击劫持防护
   xFrameOptions: 'DENY',
   
-  // HSTS (HTTPS Strict Transport Security)
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+  // HSTS - 仅在生产环境启用
+  strictTransportSecurity: process.env.NODE_ENV === 'production' 
+    ? 'max-age=31536000; includeSubDomains' 
+    : false,
   
-  // 跨域策略
-  crossOriginEmbedderPolicy: 'require-corp',
+  // 跨域策略 - 放宽以支持API访问
+  crossOriginEmbedderPolicy: false, // 关闭以避免干扰API
   crossOriginOpenerPolicy: 'same-origin',
-  crossOriginResourcePolicy: 'same-origin',
+  crossOriginResourcePolicy: false, // 关闭以支持API访问
   
   // 引荐来源策略
   referrerPolicy: 'strict-origin-when-cross-origin',
@@ -82,14 +85,14 @@ export const xssProtection = async (c: Context, next: Next) => {
         
         for (const pattern of xssPatterns) {
           if (pattern.test(body)) {
-            logger.warn('Potential XSS attack detected', {
+            logger.warn({
               requestId,
               method: c.req.method,
               url: c.req.url,
               userAgent: c.req.header('User-Agent'),
               ip: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP'),
               pattern: pattern.source
-            })
+            }, 'Potential XSS attack detected')
             
             throw new HTTPException(400, { 
               message: '请求包含不安全的内容' 
@@ -137,7 +140,7 @@ export const sqlInjectionProtection = async (c: Context, next: Next) => {
   for (const [key, value] of query.entries()) {
     for (const pattern of sqlPatterns) {
       if (pattern.test(value)) {
-        logger.warn('Potential SQL injection detected', {
+        logger.warn({
           requestId,
           method: c.req.method,
           url: c.req.url,
@@ -146,7 +149,7 @@ export const sqlInjectionProtection = async (c: Context, next: Next) => {
           userAgent: c.req.header('User-Agent'),
           ip: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP'),
           pattern: pattern.source
-        })
+        }, 'Potential SQL injection detected')
         
         throw new HTTPException(400, { 
           message: '请求参数包含不安全的内容' 
@@ -161,21 +164,23 @@ export const sqlInjectionProtection = async (c: Context, next: Next) => {
 /**
  * 请求大小限制中间件
  */
-export const requestSizeLimit = (maxSize: number = 10 * 1024 * 1024) => { // 默认10MB
+export const requestSizeLimit = (maxSize?: number) => { // 使用可选参数
+  const limitSize = maxSize || requestSizeConfig.maxSize // 优先使用传入参数，否则使用配置
+  
   return async (c: Context, next: Next) => {
     const contentLength = c.req.header('Content-Length')
     
-    if (contentLength && parseInt(contentLength) > maxSize) {
+    if (contentLength && parseInt(contentLength) > limitSize) {
       const requestId = c.get('requestId')
       
-      logger.warn('Request size limit exceeded', {
+      logger.warn({
         requestId,
         contentLength: parseInt(contentLength),
-        maxSize,
+        maxSize: limitSize,
         url: c.req.url,
         method: c.req.method,
         ip: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP')
-      })
+      }, 'Request size limit exceeded')
       
       throw new HTTPException(413, { 
         message: '请求内容过大' 
@@ -214,12 +219,12 @@ export const userAgentValidation = async (c: Context, next: Next) => {
   
   // 检查是否存在User-Agent
   if (!userAgent) {
-    logger.warn('Missing User-Agent header', {
+    logger.warn({
       requestId,
       url: c.req.url,
       method: c.req.method,
       ip: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP')
-    })
+    }, 'Missing User-Agent header')
   }
   
   // 检查可疑的User-Agent模式
@@ -234,14 +239,14 @@ export const userAgentValidation = async (c: Context, next: Next) => {
   if (userAgent) {
     for (const pattern of suspiciousPatterns) {
       if (pattern.test(userAgent)) {
-        logger.warn('Suspicious User-Agent detected', {
+        logger.warn({
           requestId,
           userAgent,
           url: c.req.url,
           method: c.req.method,
           ip: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP'),
           pattern: pattern.source
-        })
+        }, 'Suspicious User-Agent detected')
         
         // 可以选择阻止请求或仅记录
         // throw new HTTPException(403, { message: '访问被拒绝' })
@@ -270,9 +275,10 @@ export const combinedSecurity = async (c: Context, next: Next) => {
   })
 }
 
-// 导出安全配置常量
+// 导出安全配置常量和请求大小配置
+export { requestSizeConfig } from '../config/rate-limit'
+
 export const SECURITY_CONFIG = {
-  MAX_REQUEST_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_FILE_TYPES: [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'application/pdf', 'text/plain', 'application/json'

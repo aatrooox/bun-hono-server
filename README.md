@@ -8,6 +8,7 @@
 - 🛡️ **类型安全**: 全栈 TypeScript，编译时错误检查
 - 🔐 **用户认证**: JWT 认证，密码加密，会话管理
 - 🗄️ **数据库集成**: SQLite + Drizzle ORM，类型安全的数据库操作
+- ⚡ **Redis 缓存**: 完整的 Redis 缓存解决方案，支持会话存储和 API 缓存
 - 📁 **文件上传**: 功能完整的文件上传系统，支持本地存储和对象存储
 - 🖼️ **图片处理**: 自动压缩、格式转换、尺寸调整、缩略图生成
 - 📝 **输入验证**: Zod schema 验证，统一错误处理
@@ -19,6 +20,7 @@
 - **运行时**: [Bun](https://bun.sh/) - 极快的 JavaScript 运行时
 - **框架**: [Hono](https://hono.dev/) - 轻量级 Web 框架
 - **数据库**: SQLite + [Drizzle ORM](https://orm.drizzle.team/)
+- **缓存**: [Redis](https://redis.io/) + ioredis 客户端
 - **验证**: [Zod](https://zod.dev/) - TypeScript 优先的 schema 验证
 - **认证**: JWT + bcryptjs 密码哈希
 - **语言**: TypeScript
@@ -63,7 +65,51 @@ bun run dev
 
 服务器将在 http://localhost:3000 启动
 
-## 📚 API 文档
+## ⚡ Redis 缓存功能
+
+项目集成了完整的 Redis 缓存解决方案，提供多种缓存模式：
+
+### 📊 缓存类型
+
+- **API 自动缓存**: 使用中间件自动缓存 GET 请求的响应
+- **手动缓存**: 灵活的缓存管理，支持自定义缓存策略
+- **会话管理**: JWT 会话存储和黑名单管理
+- **计数器**: 原子的递增操作
+- **队列操作**: 支持消息队列和任务调度
+- **哈希表**: 结构化数据存储
+
+### 🔍 缓存示例 API
+
+访问 `/api/cache/*` 路径体验各种缓存功能：
+
+```bash
+# 自动缓存示例
+GET /api/cache/auto/123
+
+# 手动缓存示例
+GET /api/cache/manual/test-key
+
+# 计数器操作
+POST /api/cache/counter/visits/increment
+
+# 队列操作
+POST /api/cache/queue/tasks/push
+POST /api/cache/queue/tasks/pop
+```
+
+### ⚙️ 缓存配置
+
+在 `.env` 文件中配置 Redis 连接：
+
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your-password  # 可选
+REDIS_DB=0
+REDIS_KEY_PREFIX=bun-hono:
+```
+
+## 📡 API 接口示例
 
 ### 认证相关
 
@@ -214,9 +260,6 @@ bun run start
 bun run db:generate     # 生成迁移文件
 bun run db:migrate      # 执行迁移
 bun run db:studio       # 打开数据库管理界面
-
-# 测试
-bun test
 ```
 
 ## 🌍 环境变量
@@ -340,7 +383,7 @@ userLogger.dbQuery('SELECT * FROM users WHERE id = ?', [123], 45)
 ## 📖 API 响应格式
 
 ### 成功响应
-```json
+``json
 {
   "code": 200,
   "message": "操作成功",
@@ -350,7 +393,7 @@ userLogger.dbQuery('SELECT * FROM users WHERE id = ?', [123], 45)
 ```
 
 ### 错误响应
-```json
+``json
 {
   "code": 400,
   "message": "错误描述",
@@ -376,24 +419,142 @@ bun run start
 ```
 
 ### Docker 部署
-```dockerfile
-FROM oven/bun:1 as base
-WORKDIR /app
 
-# 复制依赖文件
-COPY package.json bun.lockb ./
-RUN bun install --frozen-lockfile
+项目优化了 Docker Compose 配置，使用 `env_file` 替代冗长的 `environment` 配置，更加简洁和易维护。
 
-# 复制源码
-COPY . .
+#### 快速部署
+```bash
+# 使用交互式部署脚本
+./deploy.sh
 
-# 构建应用
-RUN bun run build
-
-# 启动应用
-EXPOSE 3000
-CMD ["bun", "run", "start"]
+# 或者直接指定部署模式
+./deploy.sh dev    # 开发环境
+./deploy.sh prod   # 生产环境
+./deploy.sh app    # 仅应用服务
 ```
+
+#### 1. 开发环境 (包含开发用 Redis)
+```bash
+# 使用部署脚本
+./deploy.sh dev
+
+# 或直接使用 docker-compose
+docker-compose --profile dev up -d
+```
+
+**配置文件**: 直接使用本地 `.env` 文件
+
+#### 2. 生产环境 (连接外部 MySQL + Redis)
+```bash
+# 1. 复制并配置生产环境变量
+cp .env.prod.example .env.prod
+# 编辑 .env.prod，配置数据库和 Redis 连接信息
+
+# 2. 启动生产环境
+./deploy.sh prod
+
+# 或直接使用 docker-compose
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+**配置文件**: 
+- 服务器部署: `/root/envs/hono/.env`
+- 本地测试: `.env.prod`
+
+#### 3. 仅应用服务 (连接外部服务)
+```bash
+# 配置 .env 文件中的外部服务连接信息
+REDIS_HOST=your-redis-host
+DATABASE_URL=mysql://user:pass@host:port/db
+
+# 启动仅应用服务
+./deploy.sh app
+```
+
+### 生产环境配置要点
+
+#### 数据库连接
+```bash
+# MySQL 连接示例
+DATABASE_URL=mysql://app_user:secure_password@10.0.0.100:3306/bun_hono_db
+
+# Redis 连接示例
+REDIS_HOST=10.0.0.101
+REDIS_PORT=6379
+REDIS_PASSWORD=your-redis-password
+REDIS_KEY_PREFIX=bun-hono:prod:
+```
+
+#### 对象存储配置 (推荐)
+```bash
+# 腾讯云 COS
+UPLOAD_STORAGE_TYPE=cos
+COS_SECRET_ID=your-cos-secret-id
+COS_SECRET_KEY=your-cos-secret-key
+COS_BUCKET=your-bucket-name
+COS_REGION=ap-beijing
+```
+
+### Caddy 反向代理配置
+
+项目包含 Caddy 配置示例，自动处理 SSL 证书：
+
+```bash
+# 复制 Caddy 配置模板
+cp Caddyfile.example /etc/caddy/sites-available/bun-hono-server
+
+# 编辑配置文件，修改域名
+sudo nano /etc/caddy/sites-available/bun-hono-server
+
+# 启用站点
+sudo ln -s /etc/caddy/sites-available/bun-hono-server /etc/caddy/sites-enabled/
+
+# 重载 Caddy 配置
+sudo systemctl reload caddy
+```
+
+#### Caddy 配置特性
+- 🔒 **自动 SSL**: 自动申请和续期 Let's Encrypt 证书
+- 🔄 **负载均衡**: 支持多实例部署
+- 📊 **健康检查**: 自动检测应用健康状态
+- 🗜️ **压缩**: 自动启用 Gzip/Zstd 压缩
+- 🛡️ **安全头**: 自动添加安全相关的 HTTP 头
+- 📋 **访问日志**: JSON 格式的结构化日志
+
+### 容器监控
+
+#### 查看服务状态
+```bash
+docker-compose ps
+docker-compose logs -f app
+```
+
+#### 健康检查
+```bash
+# 应用健康检查
+curl http://localhost:3000/api/health
+
+# Docker 健康状态
+docker inspect --format='{{.State.Health}}' bun-hono-server-prod
+```
+
+#### 资源监控
+```bash
+# 查看资源使用情况
+docker stats bun-hono-server-prod
+
+# 查看日志
+docker logs -f bun-hono-server-prod
+```
+
+### 生产环境优化建议
+
+1. **资源限制**: 生产配置已设置内存和 CPU 限制
+2. **只读文件系统**: 启用了 read-only 模式提高安全性
+3. **健康检查**: 配置了完整的健康检查机制
+4. **日志管理**: 建议配置日志轮转和外部日志收集
+5. **监控告警**: 建议集成 Prometheus + Grafana 监控
+6. **备份策略**: 定期备份数据库和重要配置文件
 
 ## 🤝 贡献
 

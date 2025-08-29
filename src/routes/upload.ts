@@ -105,7 +105,7 @@ const parseFormData = async (c: Context<AppContext>, next: () => Promise<void>) 
           originalName: fileValue.name,
           size: fileValue.size,
           mimeType: fileValue.type,
-          extension: fileValue.name.split('.').pop()?.toLowerCase() || '',
+          extension: '.' + (fileValue.name.split('.').pop()?.toLowerCase() || ''),
           buffer: Buffer.from(buffer)
         }
         files.push(fileInfo)

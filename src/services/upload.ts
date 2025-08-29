@@ -250,7 +250,7 @@ export class FileUploadService {
     }
     
     // 检查文件扩展名
-    if (this.config.allowedExtensions.length > 0 && !this.config.allowedExtensions.includes(file.extension.toLowerCase())) {
+    if (this.config.allowedExtensions.length > 0 && !this.config.allowedExtensions.includes(file.extension)) {
       throw new FileValidationError(
         `不支持的文件扩展名: ${file.extension}`,
         'INVALID_FILE_EXTENSION',
@@ -434,36 +434,38 @@ export class FileUploadService {
     }
     
     // 对于图片文件，检查EXIF数据中的恶意内容
-    if (this.isImage(file.mimeType)) {
-      this.scanImageExifData(file)
-    }
+    // 注释掉：EXIF检测过于严格，影响正常图片上传
+    // if (this.isImage(file.mimeType)) {
+    //   this.scanImageExifData(file)
+    // }
   }
   
   /**
    * 扫描图片EXIF数据
+   * 注释掉：EXIF检测过于严格，影响正常图片上传
    */
-  private scanImageExifData(file: FileInfo): void {
-    const buffer = file.buffer
-    const content = buffer.toString('binary')
-    
-    // 检查EXIF数据中的可疑内容
-    const suspiciousPatterns = [
-      /<script/i,
-      /javascript/i,
-      /<?php/i,
-      /<%/i
-    ]
-    
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(content)) {
-        throw new FileValidationError(
-          '图片EXIF数据包含可疑内容',
-          'MALICIOUS_EXIF_DATA',
-          { filename: file.originalName }
-        )
-      }
-    }
-  }
+  // private scanImageExifData(file: FileInfo): void {
+  //   const buffer = file.buffer
+  //   const content = buffer.toString('binary')
+  //   
+  //   // 检查EXIF数据中的可疑内容
+  //   const suspiciousPatterns = [
+  //     /<script/i,
+  //     /javascript/i,
+  //     /<?php/i,
+  //     /<%/i
+  //   ]
+  //   
+  //   for (const pattern of suspiciousPatterns) {
+  //     if (pattern.test(content)) {
+  //       throw new FileValidationError(
+  //         '图片EXIF数据包含可疑内容',
+  //         'MALICIOUS_EXIF_DATA',
+  //         { filename: file.originalName }
+  //       )
+  //     }
+  //   }
+  // }
   
   /**
    * 检查是否为图片文件

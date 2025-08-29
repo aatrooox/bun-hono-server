@@ -1,20 +1,11 @@
 import { Context, Next } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { rateLimiter } from 'hono-rate-limiter'
-import { Logger } from '../utils/logger'
+import { CustomLogger } from '../utils/logger'
+import { rateLimitConfig, getRateLimitConfig, type RateLimitConfig } from '../config/rate-limit'
 
-const logger = new Logger('rate-limiter')
-
-/**
- * 限流配置接口
- */
-interface RateLimitConfig {
-  windowMs: number      // 时间窗口（毫秒）
-  maxRequests: number   // 最大请求数
-  message?: string      // 限流消息
-  skipSuccessfulRequests?: boolean  // 是否跳过成功请求
-  skipFailedRequests?: boolean      // 是否跳过失败请求
-}
+const logger = new CustomLogger('rate-limiter')
+const config = getRateLimitConfig()
 
 /**
  * 获取客户端标识
@@ -37,10 +28,10 @@ function getClientId(c: Context): string {
 /**
  * 创建基础限流中间件
  */
-function createRateLimiter(config: RateLimitConfig) {
+function createRateLimiter(rateLimitConfig: RateLimitConfig) {
   return rateLimiter({
-    windowMs: config.windowMs,
-    limit: config.maxRequests,
+    windowMs: rateLimitConfig.windowMs,
+    limit: rateLimitConfig.maxRequests,
     standardHeaders: true, // 返回限流信息在响应头中
     
     // 自定义键生成函数
@@ -53,17 +44,17 @@ function createRateLimiter(config: RateLimitConfig) {
       const clientId = getClientId(c)
       const requestId = c.get('requestId')
       
-      logger.warn('Rate limit exceeded', {
+      logger.warn({
         requestId,
         clientId,
         method: c.req.method,
         url: c.req.url,
-        windowMs: config.windowMs,
-        maxRequests: config.maxRequests
-      })
+        windowMs: rateLimitConfig.windowMs,
+        maxRequests: rateLimitConfig.maxRequests
+      }, 'Rate limit exceeded')
       
       throw new HTTPException(429, { 
-        message: config.message || `请求过于频繁，请稍后再试` 
+        message: rateLimitConfig.message || `请求过于频繁，请稍后再试` 
       })
     },
     
@@ -80,46 +71,35 @@ function createRateLimiter(config: RateLimitConfig) {
 }
 
 /**
- * 全局限流 - 每个IP每分钟最多100个请求
+ * 全局限流 - 每个IP每分钟的请求限制
  */
-export const globalRateLimit = createRateLimiter({
-  windowMs: 60 * 1000, // 1分钟
-  maxRequests: 100,
-  message: '请求过于频繁，请1分钟后再试'
-})
+export const globalRateLimit = createRateLimiter(config.global)
 
 /**
- * 认证API限流 - 每个IP每5分钟最多5次登录尝试
+ * 认证API限流 - 登录/注册等敏感操作的限制
  */
-export const authRateLimit = createRateLimiter({
-  windowMs: 5 * 60 * 1000, // 5分钟
-  maxRequests: 5,
-  message: '登录尝试过于频繁，请5分钟后再试'
-})
+export const authRateLimit = createRateLimiter(config.auth)
 
 /**
- * 用户API限流 - 每个用户每分钟最多30个请求
+ * 用户API限流 - 已认证用户的常规操作限制
  */
-export const userRateLimit = createRateLimiter({
-  windowMs: 60 * 1000, // 1分钟
-  maxRequests: 30,
-  message: '操作过于频繁，请稍后再试'
-})
+export const userRateLimit = createRateLimiter(config.user)
 
 /**
- * 严格限流 - 用于敏感操作，每个用户每小时最多5次
+ * 严格限流 - 用于敏感操作（如修改密码、删除账户等）
  */
-export const strictRateLimit = createRateLimiter({
-  windowMs: 60 * 60 * 1000, // 1小时
-  maxRequests: 5,
-  message: '此操作限制频率，请1小时后再试'
-})
+export const strictRateLimit = createRateLimiter(config.strict)
+
+/**
+ * 文件上传限流
+ */
+export const uploadRateLimit = createRateLimiter(config.upload)
 
 /**
  * 自定义限流中间件工厂
  */
-export function createCustomRateLimit(config: RateLimitConfig) {
-  return createRateLimiter(config)
+export function createCustomRateLimit(rateLimitConfig: RateLimitConfig) {
+  return createRateLimiter(rateLimitConfig)
 }
 
 /**
@@ -160,20 +140,15 @@ export const rateLimitStatus = async (c: Context, next: Next) => {
   const reset = c.res.headers.get('X-RateLimit-Reset')
   
   if (remaining && reset) {
-    logger.debug('Rate limit status', {
+    logger.debug({
       requestId: c.get('requestId'),
       clientId: getClientId(c),
       remaining: parseInt(remaining),
       reset: new Date(parseInt(reset) * 1000).toISOString(),
       duration: `${Date.now() - start}ms`
-    })
+    }, 'Rate limit status')
   }
 }
 
-// 导出配置常量
-export const RATE_LIMIT_CONFIG = {
-  GLOBAL: { windowMs: 60 * 1000, maxRequests: 100 },
-  AUTH: { windowMs: 5 * 60 * 1000, maxRequests: 5 },
-  USER: { windowMs: 60 * 1000, maxRequests: 30 },
-  STRICT: { windowMs: 60 * 60 * 1000, maxRequests: 5 }
-} as const
+// 导出配置常量和类型
+export { rateLimitConfig, getRateLimitConfig, type RateLimitConfig } from '../config/rate-limit'
