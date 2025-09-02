@@ -38,7 +38,7 @@ usersRouter.use('*', userRateLimit)
 /**
  * 更新用户信息
  */
-usersRouter.patch('/me', zValidator('json', updateUserSchema), async (c) => {
+usersRouter.post('/me', zValidator('json', updateUserSchema), async (c) => {
   const user = c.get('user')
   const updates = c.req.valid('json') as UpdateUserRequest
 
@@ -88,7 +88,7 @@ usersRouter.patch('/me', zValidator('json', updateUserSchema), async (c) => {
 /**
  * 修改密码
  */
-usersRouter.patch('/me/password', strictRateLimit, zValidator('json', changePasswordSchema), async (c) => {
+usersRouter.post('/me/password', strictRateLimit, zValidator('json', changePasswordSchema), async (c) => {
   const user = c.get('user')
   const { oldPassword, newPassword } = c.req.valid('json') as ChangePasswordRequest
 
@@ -286,7 +286,7 @@ usersRouter.delete('/:id', adminMiddleware, strictRateLimit, zValidator('param',
 /**
  * 更新用户状态（管理员）
  */
-usersRouter.patch('/:id/status', adminMiddleware, strictRateLimit, 
+usersRouter.post('/:id/status', adminMiddleware, strictRateLimit, 
   zValidator('param', deleteUserSchema),
   zValidator('json', z.object({ status: z.number().int().min(0).max(1) })),
   async (c) => {

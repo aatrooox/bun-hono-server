@@ -8,10 +8,7 @@
     "start": "bun run dist/index.js",
     "db:generate": "drizzle-kit generate:sqlite",
     "db:migrate": "bun run src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio",
-    "openapi:generate": "bun run scripts/generate-openapi.ts",
-    "openapi:validate": "curl -s http://localhost:4778/api/openapi/validate | jq",
-    "docs:generate": "bun run openapi:generate"
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.2.0",

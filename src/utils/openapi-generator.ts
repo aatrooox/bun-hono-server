@@ -1,10 +1,11 @@
 /**
  * OpenAPI 规范生成器
- * 基于现有的 Zod Schema 和路由结构自动生成 OpenAPI JSON
+ * 基于自动路由发现生成 OpenAPI JSON
  */
 
 import { z } from 'zod'
 import packageJson from '../../package.json'
+import { createRouteDiscovery } from './route-discovery'
 
 // OpenAPI 基础结构
 interface OpenAPISpec {
@@ -26,16 +27,17 @@ interface OpenAPISpec {
   security?: Array<Record<string, string[]>>
 }
 
-// 路由信息接口
-interface RouteInfo {
+// 路由元数据接口
+export interface RouteMetadata {
   method: string
   path: string
   summary?: string
   description?: string
   tags?: string[]
-  requestSchema?: z.ZodSchema
+  requestSchema?: any
   responseSchema?: any
   requiresAuth?: boolean
+  adminOnly?: boolean
   rateLimit?: string
 }
 
@@ -78,14 +80,14 @@ class ZodToOpenAPIConverter {
       if (schema._def.checks) {
         for (const check of schema._def.checks) {
           switch (check.kind) {
-            case 'int':
-              result.type = 'integer'
-              break
             case 'min':
               result.minimum = check.value
               break
             case 'max':
               result.maximum = check.value
+              break
+            case 'int':
+              result.type = 'integer'
               break
           }
         }
@@ -112,7 +114,7 @@ class ZodToOpenAPIConverter {
       for (const [key, value] of Object.entries(schema.shape)) {
         properties[key] = this.convert(value as z.ZodSchema)
         
-        // 检查是否必填
+        // 检查是否为必需字段
         if (!(value as any).isOptional()) {
           required.push(key)
         }
@@ -127,7 +129,7 @@ class ZodToOpenAPIConverter {
         result.required = required
       }
 
-      // 如果有名称，保存到 schemas
+      // 如果提供了名称，存储 schema
       if (name) {
         this.schemas[name] = result
         return { $ref: `#/components/schemas/${name}` }
@@ -140,15 +142,16 @@ class ZodToOpenAPIConverter {
       return this.convert(schema._def.innerType)
     }
 
-    if (schema instanceof z.ZodEnum) {
+    if (schema instanceof z.ZodNullable) {
+      const innerSchema = this.convert(schema._def.innerType)
       return {
-        type: 'string',
-        enum: schema._def.values
+        ...innerSchema,
+        nullable: true
       }
     }
 
-    // 默认返回
-    return { type: 'string' }
+    // 默认返回通用对象
+    return { type: 'object' }
   }
 
   getSchemas(): Record<string, any> {
@@ -158,16 +161,21 @@ class ZodToOpenAPIConverter {
 
 /**
  * OpenAPI 生成器
+ * 仅支持自动路由发现模式
  */
 export class OpenAPIGenerator {
   private spec: OpenAPISpec
   private converter = new ZodToOpenAPIConverter()
+  private projectRoot: string
 
   constructor(
     title: string = 'API Documentation',
     version: string = '1.0.0',
-    description?: string
+    description?: string,
+    projectRoot: string = process.cwd()
   ) {
+    this.projectRoot = projectRoot
+    
     this.spec = {
       openapi: '3.0.3',
       info: {
@@ -197,10 +205,24 @@ export class OpenAPIGenerator {
   }
 
   /**
-   * 添加路由信息
+   * 自动发现并添加路由
    */
-  addRoute(routeInfo: RouteInfo) {
-    const { method, path, summary, description, tags, requestSchema, responseSchema, requiresAuth } = routeInfo
+  async autoDiscoverRoutes(): Promise<void> {
+    const discovery = createRouteDiscovery(this.projectRoot)
+    const routes = await discovery.discoverRoutes()
+    
+    console.log(`🔍 自动发现到 ${routes.length} 个路由`)
+    
+    routes.forEach(route => {
+      this.addRouteFromMetadata(route)
+    })
+  }
+
+  /**
+   * 从路由元数据添加路由
+   */
+  private addRouteFromMetadata(routeMetadata: RouteMetadata) {
+    const { method, path, summary, description, tags, requestSchema, responseSchema, requiresAuth, adminOnly } = routeMetadata
 
     // 初始化路径
     if (!this.spec.paths[path]) {
@@ -217,8 +239,8 @@ export class OpenAPIGenerator {
     // 处理请求参数
     if (requestSchema) {
       if (method === 'get' || method === 'delete') {
-        // Query parameters
-        const schema = this.converter.convert(requestSchema)
+        // GET/DELETE 请求的参数通常在 URL 中
+        const schema = typeof requestSchema === 'object' ? requestSchema : this.converter.convert(requestSchema)
         if (schema.properties) {
           operation.parameters = Object.entries(schema.properties).map(([name, prop]: any) => ({
             name,
@@ -228,19 +250,23 @@ export class OpenAPIGenerator {
           }))
         }
       } else {
-        // Request body
-        const schemaName = `${method}${path.replace(/[\/\{\}:]/g, '')}Request`
-        const schema = this.converter.convert(requestSchema, schemaName)
-        
+        // POST/PUT/PATCH 请求的参数通常在 body 中
         operation.requestBody = {
           required: true,
           content: {
             'application/json': {
-              schema
+              schema: typeof requestSchema === 'object' ? requestSchema : this.converter.convert(requestSchema)
             }
           }
         }
       }
+    }
+
+    // 处理路径参数
+    const pathParams = this.extractPathParameters(path)
+    if (pathParams.length > 0) {
+      if (!operation.parameters) operation.parameters = []
+      operation.parameters.push(...pathParams)
     }
 
     // 处理响应
@@ -254,7 +280,7 @@ export class OpenAPIGenerator {
               properties: {
                 code: { type: 'integer', example: 200 },
                 message: { type: 'string', example: 'Success' },
-                data: responseSchema ? this.converter.convert(responseSchema) : { type: 'object' },
+                data: responseSchema ? (typeof responseSchema === 'object' ? responseSchema : this.converter.convert(responseSchema)) : { type: 'object' },
                 timestamp: { type: 'integer', example: Date.now() }
               }
             }
@@ -298,7 +324,42 @@ export class OpenAPIGenerator {
       operation.security = [{ BearerAuth: [] }]
     }
 
+    // 添加管理员标记
+    if (adminOnly) {
+      operation['x-admin-only'] = true
+      if (!operation.description) {
+        operation.description = '需要管理员权限'
+      } else {
+        operation.description += ' (需要管理员权限)'
+      }
+    }
+
     this.spec.paths[path][method.toLowerCase()] = operation
+  }
+
+  /**
+   * 提取路径参数
+   */
+  private extractPathParameters(path: string): any[] {
+    const params: any[] = []
+    const paramMatches = path.match(/\{([^}]+)\}/g)
+    
+    if (paramMatches) {
+      paramMatches.forEach(match => {
+        const paramName = match.slice(1, -1) // 移除 { }
+        params.push({
+          name: paramName,
+          in: 'path',
+          required: true,
+          schema: {
+            type: 'string'
+          },
+          description: `${paramName} 参数`
+        })
+      })
+    }
+    
+    return params
   }
 
   /**
@@ -330,10 +391,11 @@ export class OpenAPIGenerator {
         birthday: { type: 'string', nullable: true },
         bio: { type: 'string', nullable: true },
         status: { type: 'integer' },
+        role: { type: 'string' },
         createdAt: { type: 'string', format: 'date-time' },
         updatedAt: { type: 'string', format: 'date-time' }
       },
-      required: ['id', 'email', 'name', 'status', 'createdAt', 'updatedAt']
+      required: ['id', 'email', 'name', 'status', 'role', 'createdAt', 'updatedAt']
     }
 
     // 登录响应
@@ -375,12 +437,13 @@ export class OpenAPIGenerator {
 }
 
 /**
- * 创建默认的 OpenAPI 生成器实例
+ * 创建支持自动发现的 OpenAPI 生成器
  */
-export function createOpenAPIGenerator() {
+export function createAutoDiscoveryOpenAPIGenerator(projectRoot: string) {
   return new OpenAPIGenerator(
     'Bun Hono Server API',
     packageJson.version,
-    '基于 Bun 和 Hono 构建的轻量级服务端 API'
+    '基于 Bun 和 Hono 构建的轻量级服务端 API - 自动生成',
+    projectRoot
   )
 }
