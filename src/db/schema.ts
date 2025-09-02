@@ -14,6 +14,7 @@ export const users = sqliteTable('users', {
   birthday: text('birthday'), // 生日
   bio: text('bio'), // 个人简介
   status: integer('status').notNull().default(1), // 状态：0-禁用，1-正常
+  role: text('role').notNull().default('user'), // 角色：user-普通用户，admin-管理员
   createdAt: text('created_at')
     .notNull()
     .default(sql`(datetime('now'))`),

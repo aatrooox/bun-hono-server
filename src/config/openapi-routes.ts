@@ -21,6 +21,7 @@ interface RouteInfo {
   requestSchema?: any
   responseSchema?: any
   requiresAuth?: boolean
+  adminOnly?: boolean
   rateLimit?: string
 }
 
@@ -134,6 +135,102 @@ export const userRoutes: RouteInfo[] = [
     },
     requiresAuth: true,
     rateLimit: 'strict'
+  },
+  {
+    method: 'get',
+    path: '/api/users',
+    summary: '获取用户列表',
+    description: '管理员获取用户列表，支持分页和搜索',
+    tags: ['用户管理'],
+    requestSchema: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', minimum: 1, description: '页码' },
+        limit: { type: 'integer', minimum: 1, maximum: 100, description: '每页数量' },
+        search: { type: 'string', description: '搜索关键词' },
+        status: { type: 'integer', enum: [0, 1], description: '用户状态' },
+        role: { type: 'string', enum: ['user', 'admin'], description: '用户角色' }
+      }
+    },
+    responseSchema: {
+      type: 'object',
+      properties: {
+        users: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer' },
+              email: { type: 'string' },
+              name: { type: 'string' },
+              nickname: { type: 'string' },
+              avatar: { type: 'string' },
+              phone: { type: 'string' },
+              gender: { type: 'integer' },
+              status: { type: 'integer' },
+              role: { type: 'string' },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' }
+            }
+          }
+        },
+        pagination: {
+          type: 'object',
+          properties: {
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            total: { type: 'integer' },
+            totalPages: { type: 'integer' },
+            hasNext: { type: 'boolean' },
+            hasPrev: { type: 'boolean' }
+          }
+        }
+      }
+    },
+    requiresAuth: true,
+    adminOnly: true
+  },
+  {
+    method: 'delete',
+    path: '/api/users/{id}',
+    summary: '删除用户',
+    description: '管理员删除指定用户',
+    tags: ['用户管理'],
+    responseSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' }
+      }
+    },
+    requiresAuth: true,
+    adminOnly: true,
+    rateLimit: 'strict'
+  },
+  {
+    method: 'patch',
+    path: '/api/users/{id}/status',
+    summary: '更新用户状态',
+    description: '管理员更新用户的启用/禁用状态',
+    tags: ['用户管理'],
+    requestSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'integer', enum: [0, 1], description: '0-禁用，1-启用' }
+      },
+      required: ['status']
+    },
+    responseSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer' },
+        email: { type: 'string' },
+        name: { type: 'string' },
+        status: { type: 'integer' }
+      }
+    },
+    requiresAuth: true,
+    adminOnly: true,
+    rateLimit: 'strict'
   }
 ]
 
@@ -141,23 +238,6 @@ export const userRoutes: RouteInfo[] = [
  * 文件上传相关路由配置
  */
 export const uploadRoutes: RouteInfo[] = [
-  {
-    method: 'get',
-    path: '/api/upload/config',
-    summary: '获取上传配置',
-    description: '获取文件上传的配置信息和限制',
-    tags: ['文件上传'],
-    responseSchema: {
-      type: 'object',
-      properties: {
-        storageType: { type: 'string' },
-        maxFileSize: { type: 'string' },
-        allowedTypes: { type: 'array', items: { type: 'string' } },
-        allowedExtensions: { type: 'array', items: { type: 'string' } },
-        uploadPath: { type: 'string' }
-      }
-    }
-  },
   {
     method: 'post',
     path: '/api/upload/single',

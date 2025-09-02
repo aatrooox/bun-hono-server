@@ -13,8 +13,7 @@ import {
 } from '../services/upload.js'
 import { 
   getFullUploadConfig,
-  validateStorageConfig,
-  getConfigSummary
+  validateStorageConfig
 } from '../config/upload.js'
 import { 
   FileInfo,
@@ -35,7 +34,8 @@ try {
   initUploadService(uploadConfig, adapterConfig)
   
   uploadLogger.info({
-    config: getConfigSummary()
+    storageType: uploadConfig.storageType,
+    maxFileSize: uploadConfig.maxFileSize
   }, '文件上传服务初始化成功')
 } catch (error: any) {
   uploadLogger.error({
@@ -45,21 +45,6 @@ try {
     }
   }, '文件上传服务初始化失败')
 }
-
-// 上传配置查询
-upload.get('/config', (c) => {
-  try {
-    const uploadService = getUploadService()
-    const config = uploadService.getSupportedTypes()
-    
-    return c.get('success')({
-      ...config,
-      ...getConfigSummary()
-    }, '获取上传配置成功')
-  } catch (error) {
-    return c.get('error')(500, '获取上传配置失败')
-  }
-})
 
 // 文件上传验证schema
 const uploadSchema = z.object({

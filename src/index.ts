@@ -13,7 +13,6 @@ import api from './routes'
 import { initDatabase } from './db/migrate'
 import type { AppContext } from './types'
 import { logger } from './utils/logger'
-import { UploadTestPage } from './views/UploadTest'
 import { Config } from './config'
 
 // 创建 Hono 应用
@@ -55,20 +54,8 @@ app.get('/', (c) => {
     message: 'Welcome to Bun Hono Server!',
     version: Config.APP_VERSION,
     api: '/api',
-    health: '/api/health',
-    uploadTest: '/test-upload',
-    uploadTestJSX: '/test-upload-jsx'
+    health: '/api/health'
   }, '服务器运行正常')
-})
-
-// 文件上传测试页面
-app.get('/test-upload', (c) => {
-  return c.redirect('/public/upload-test.html')
-})
-
-// JSX 版本的测试页面
-app.get('/test-upload-jsx', (c) => {
-  return c.html(UploadTestPage())
 })
 
 // 404 处理

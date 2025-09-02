@@ -306,24 +306,7 @@ export function getFullUploadConfig() {
   }
 }
 
-// 配置详情（用于调试和状态显示）
-export function getConfigSummary() {
-  const uploadConfig = getUploadConfig()
-  const securityConfig = getUploadSecurityConfig()
-  
-  return {
-    storageType: uploadConfig.storageType,
-    maxFileSize: `${(uploadConfig.maxFileSize / 1024 / 1024).toFixed(1)}MB`,
-    allowedTypes: uploadConfig.allowedTypes,
-    allowedExtensions: uploadConfig.allowedExtensions,
-    uploadPath: uploadConfig.uploadPath,
-    security: {
-      enableSecurityScan: securityConfig.enableSecurityScan,
-      blockExecutableFiles: securityConfig.blockExecutableFiles,
-      scanFileContent: securityConfig.scanFileContent
-    }
-  }
-}
+
 
 /**
  * 导出默认配置和环境配置函数

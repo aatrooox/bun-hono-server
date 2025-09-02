@@ -21,6 +21,7 @@ export interface AppContext {
       birthday?: string | null
       bio?: string | null
       status: number
+      role: string
     }
     jwtPayload?: {
       userId: number

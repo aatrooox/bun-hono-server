@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2025-08-29T06:54:05.097Z",
-  "totalRoutes": 16,
-  "authRequired": 9,
+  "generatedAt": "2025-09-02T06:26:30.233Z",
+  "totalRoutes": 18,
+  "authRequired": 12,
   "tags": [
     "认证",
     "用户管理",
@@ -19,6 +19,6 @@
     "auth": 2,
     "user": 1,
     "upload": 1,
-    "strict": 1
+    "strict": 3
   }
 }

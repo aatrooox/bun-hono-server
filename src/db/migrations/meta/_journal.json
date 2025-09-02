@@ -15,6 +15,13 @@
       "when": 1756390638342,
       "tag": "0001_aspiring_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1756794139556,
+      "tag": "0002_past_molly_hayes",
+      "breakpoints": true
     }
   ]
 }
