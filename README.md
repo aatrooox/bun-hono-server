@@ -78,23 +78,27 @@ bun run dev
 - **队列操作**: 支持消息队列和任务调度
 - **哈希表**: 结构化数据存储
 
-### 🔍 缓存示例 API
+### 🔍 对外接口策略
 
-访问 `/api/cache/*` 路径体验各种缓存功能：
+出于安全与职责划分考虑，项目不再对外暴露任何“写缓存/清缓存/队列”等维护类接口；缓存能力仅作为内部中间件与工具使用（见 `src/cache/*`）。
 
-```bash
-# 自动缓存示例
-GET /api/cache/auto/123
+示例：为 GET 接口开启自动缓存（仅通过中间件生效，不单独提供缓存 API）。
 
-# 手动缓存示例
-GET /api/cache/manual/test-key
+```ts
+import { Hono } from 'hono'
+import { cache } from './src/cache/middleware'
 
-# 计数器操作
-POST /api/cache/counter/visits/increment
+const api = new Hono()
 
-# 队列操作
-POST /api/cache/queue/tasks/push
-POST /api/cache/queue/tasks/pop
+// 获取商品详情（自动缓存 5 分钟）
+api.get('/products/:id',
+  cache({ ttl: 300, keyPrefix: 'product:' }),
+  async (c) => {
+    const id = c.req.param('id')
+    // ... 查询数据库
+    return c.get('success')({ id, name: 'Demo' })
+  }
+)
 ```
 
 ### ⚙️ 缓存配置
@@ -211,6 +215,89 @@ DELETE /api/upload/:path
 
 📚 **详细文档**: 查看 [UPLOAD_API.md](UPLOAD_API.md) 获取完整的文件上传API文档
 
+
+
+## 📘 OpenAPI 文档生成（本地静态）
+
+项目内置一个静态分析脚本，扫描 `src/routes` 中实际挂载的路由，生成 OpenAPI 3.0 文档到 `docs/openapi.json`，便于前端/测试同学使用任意 OpenAPI 工具导入查看。
+
+### 能力概览
+- 本地静态生成（不侵入业务、无需运行服务）。
+- 仅收集在 `src/routes/index.ts` 通过 `api.route('/xxx', module)` 挂载的路由。
+- 识别 Hono 风格路径与参数，将 `:id`、`:path{.+}` 转为 `{id}`、`{path}`。
+- 从“紧邻路由调用上方的单行注释”提取接口名称，映射为 OpenAPI `summary`。
+- 识别 `@hono/zod-validator` 的 `zValidator('json'|'query'|'param'|'form', SchemaName)` 并生成请求体/参数。
+- 若中间件参数包含 `authMiddleware`，自动为该接口添加 `Bearer JWT` 安全要求。
+- 响应统一使用项目标准 `ApiResponse` 包裹，`data` 默认为通用对象。
+
+生成产物：`docs/openapi.json`
+
+### 使用方式
+
+```bash
+bun run docs:generate   # 生成一次
+bun run docs:watch      # 监听 routes/types 变化自动生成
+```
+
+可用 Swagger UI、Redoc、Insomnia 或 VS Code 的 OpenAPI 预览扩展打开 `docs/openapi.json`。
+
+### 编写规范（让生成器正确识别）
+1) 路由定义与挂载
+- 在路由文件中以 `const router = new Hono()` 实例化，并使用 `router.get/post/...('/path', ...)` 定义接口。
+- 将该路由模块以默认导出，并在 `src/routes/index.ts` 中通过 `api.route('/prefix', yourRouter)` 挂载。未挂载的路由不会出现在文档中。
+
+2) 单行注释即接口名称
+- 在每个路由调用的正上方使用单行注释作为接口名，生成到 `summary`。
+
+```ts
+// 获取当前用户信息
+auth.get('/me', authMiddleware, async (c) => { /* ... */ })
+```
+
+3) 参数与校验（Zod + zValidator）
+- 仅识别“命名导出”的 Zod Schema，且需放在 `src/types/*.ts` 中。
+- 在路由里引用该 Schema 时请“不要重命名导入”，否则生成器无法按名称匹配。
+
+```ts
+// src/types/auth.ts
+import { z } from 'zod'
+export const LoginInput = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+})
+
+// src/routes/auth.ts
+import { zValidator } from '@hono/zod-validator'
+import { LoginInput } from '../types/auth' // ✅ 不要重命名为其它别名
+
+// 用户登录
+auth.post('/login', zValidator('json', LoginInput), async (c) => { /* ... */ })
+```
+
+`zValidator` 映射关系：
+- `'json'` -> requestBody.application/json
+- `'query'` -> query parameters
+- `'param'` -> path parameters（会自动设为 required）
+- `'form'` -> x-www-form-urlencoded 与 multipart/form-data
+
+4) 鉴权标识
+- 需要 JWT 的接口在参数中包含 `authMiddleware`，文档会自动添加 `bearerAuth` 安全要求。
+
+```ts
+// 获取个人资料（需登录）
+users.get('/me', authMiddleware, async (c) => { /* ... */ })
+```
+
+5) 路径参数
+- Hono 的 `:id`、`:slug{[a-z-]+}` 会被转换为 OpenAPI 的 `{id}`、`{slug}`。
+
+### 当前限制
+- 仅解析“单行注释”为接口 `summary`；暂不支持多行注释生成 description/tags。
+- 仅支持 `@hono/zod-validator` 的命名 Schema；内联 `z.object({...})` 暂不提取。
+- 响应 `data` 的精确 Schema 暂未从代码中推导，默认使用通用对象包裹。
+- 运行时条件/动态路由不会被静态分析捕获。
+
+如需扩展（例如 `// @tag`、`// @desc` 注释约定或响应 Schema 推导），可以后续按需添加。
 
 
 ## 🏗️ 项目结构

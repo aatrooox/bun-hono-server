@@ -22,9 +22,7 @@ import type { AppContext } from '../types'
 
 const auth = new Hono<AppContext>()
 
-/**
- * 用户注册
- */
+// 用户注册
 auth.post('/register', authRateLimit, zValidator('json', registerSchema), async (c) => {
   const { email, password, name } = c.req.valid('json') as RegisterRequest
 
@@ -92,9 +90,7 @@ auth.post('/register', authRateLimit, zValidator('json', registerSchema), async 
   return c.get('success')(response, '注册成功')
 })
 
-/**
- * 用户登录
- */
+// 用户登录
 auth.post('/login', authRateLimit, zValidator('json', loginSchema), async (c) => {
   const { email, password } = c.req.valid('json') as LoginRequest
 
@@ -162,9 +158,7 @@ auth.post('/login', authRateLimit, zValidator('json', loginSchema), async (c) =>
   return c.get('success')(response, '登录成功')
 })
 
-/**
- * 获取当前用户信息
- */
+// 获取当前用户信息
 auth.get('/me', authMiddleware, async (c) => {
   const user = c.get('user')
   
@@ -175,9 +169,7 @@ auth.get('/me', authMiddleware, async (c) => {
   return c.get('success')(user, '获取用户信息成功')
 })
 
-/**
- * 刷新令牌
- */
+// 刷新令牌
 auth.post('/refresh', zValidator('json', refreshTokenSchema), async (c) => {
   const { refreshToken } = c.req.valid('json') as RefreshTokenRequest
   
@@ -239,9 +231,7 @@ auth.post('/refresh', zValidator('json', refreshTokenSchema), async (c) => {
   return c.get('success')(response, '令牌刷新成功')
 })
 
-/**
- * 退出登录（吃销 refresh token）
- */
+// 退出登录（吃销 refresh token）
 auth.post('/logout', zValidator('json', refreshTokenSchema), async (c) => {
   const { refreshToken } = c.req.valid('json') as RefreshTokenRequest
   
@@ -267,9 +257,7 @@ auth.post('/logout', zValidator('json', refreshTokenSchema), async (c) => {
   return c.get('success')(null, '退出登录成功')
 })
 
-/**
- * 退出所有设备（吃销用户所有 refresh token）
- */
+// 退出所有设备（吃销用户所有 refresh token）
 auth.post('/logout-all', authMiddleware, async (c) => {
   const user = c.get('user')
   

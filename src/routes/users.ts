@@ -35,9 +35,7 @@ const deleteUserSchema = z.object({
 usersRouter.use('*', authMiddleware)
 usersRouter.use('*', userRateLimit)
 
-/**
- * 更新用户信息
- */
+// 更新用户信息
 usersRouter.post('/me', zValidator('json', updateUserSchema), async (c) => {
   const user = c.get('user')
   const updates = c.req.valid('json') as UpdateUserRequest
@@ -85,9 +83,7 @@ usersRouter.post('/me', zValidator('json', updateUserSchema), async (c) => {
   return c.get('success')(updatedUser, '用户信息更新成功')
 })
 
-/**
- * 修改密码
- */
+// 修改密码
 usersRouter.post('/me/password', strictRateLimit, zValidator('json', changePasswordSchema), async (c) => {
   const user = c.get('user')
   const { oldPassword, newPassword } = c.req.valid('json') as ChangePasswordRequest
@@ -128,9 +124,7 @@ usersRouter.post('/me/password', strictRateLimit, zValidator('json', changePassw
   return c.get('success')(null, '密码修改成功')
 })
 
-/**
- * 删除账户
- */
+// 删除账户
 usersRouter.delete('/me', strictRateLimit, async (c) => {
   const user = c.get('user')
 
@@ -146,9 +140,7 @@ usersRouter.delete('/me', strictRateLimit, async (c) => {
   return c.get('success')(null, '账户删除成功')
 })
 
-/**
- * 获取用户统计信息
- */
+// 获取用户统计信息
 usersRouter.get('/me/stats', async (c) => {
   const user = c.get('user')
 
@@ -171,9 +163,7 @@ usersRouter.get('/me/stats', async (c) => {
 // 管理员接口（需要管理员权限）
 // ==========================
 
-/**
- * 获取用户列表（管理员）
- */
+// 获取用户列表（管理员）
 usersRouter.get('/', adminMiddleware, zValidator('query', userListSchema), async (c) => {
   const { page, limit, search, status, role } = c.req.valid('query')
   
@@ -242,9 +232,7 @@ usersRouter.get('/', adminMiddleware, zValidator('query', userListSchema), async
   }, '获取用户列表成功')
 })
 
-/**
- * 删除指定用户（管理员）
- */
+// 删除指定用户（管理员）
 usersRouter.delete('/:id', adminMiddleware, strictRateLimit, zValidator('param', deleteUserSchema), async (c) => {
   const { id } = c.req.valid('param')
   const currentUser = c.get('user')
@@ -283,9 +271,7 @@ usersRouter.delete('/:id', adminMiddleware, strictRateLimit, zValidator('param',
   return c.get('success')(null, `用户 ID ${id} 已被删除`)
 })
 
-/**
- * 更新用户状态（管理员）
- */
+// 更新用户状态（管理员）
 usersRouter.post('/:id/status', adminMiddleware, strictRateLimit, 
   zValidator('param', deleteUserSchema),
   zValidator('json', z.object({ status: z.number().int().min(0).max(1) })),

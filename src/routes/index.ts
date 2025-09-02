@@ -4,7 +4,6 @@ import auth from './auth'
 import users from './users'
 import upload from './upload'
 import health from './health'
-import cache from './cache'
 
 // 创建 API 路由器
 const api = new Hono()
@@ -22,8 +21,7 @@ api.get('/', (c) => {
       auth: '/api/auth',
       users: '/api/users',
       upload: '/api/upload',
-      health: '/api/health',
-      cache: '/api/cache'
+  health: '/api/health'
     }
   }, 'API 服务正常运行')
 })
@@ -33,6 +31,5 @@ api.route('/auth', auth)
 api.route('/users', users)
 api.route('/upload', upload)
 api.route('/health', health)
-api.route('/cache', cache)
 
 export default api
