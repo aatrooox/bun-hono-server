@@ -11,6 +11,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@hono/standard-validator": "^0.1.5",
     "@hono/zod-validator": "^0.2.0",
     "@types/sharp": "^0.32.0",
     "bcryptjs": "^2.4.3",
@@ -18,12 +19,14 @@
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.30.0",
     "hono": "^4.9.4",
+    "hono-openapi": "^0.4.8",
     "hono-rate-limiter": "^0.4.2",
     "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
     "pino": "^9.9.0",
     "pino-roll": "^3.1.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "zod-openapi": "^5.4.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

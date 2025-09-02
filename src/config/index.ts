@@ -67,7 +67,7 @@ try {
   }, 'Environment configuration loaded successfully')
 } catch (error) {
   if (error instanceof z.ZodError) {
-    const errorMessages = error.errors.map(err => {
+    const errorMessages = error.issues.map((err: z.ZodIssue) => {
       return `${err.path.join('.')}: ${err.message}`
     })
     
@@ -76,7 +76,7 @@ try {
     }, 'Environment configuration validation failed')
     
     console.error('❌ Environment configuration errors:')
-    errorMessages.forEach(msg => console.error(`  - ${msg}`))
+    errorMessages.forEach((msg:any) => console.error(`  - ${msg}`))
     process.exit(1)
   }
   

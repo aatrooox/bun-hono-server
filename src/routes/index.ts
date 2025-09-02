@@ -5,7 +5,6 @@ import users from './users'
 import upload from './upload'
 import health from './health'
 import cache from './cache'
-import openapiAuto from './openapi-auto'
 
 // 创建 API 路由器
 const api = new Hono()
@@ -24,11 +23,7 @@ api.get('/', (c) => {
       users: '/api/users',
       upload: '/api/upload',
       health: '/api/health',
-      cache: '/api/cache',
-      openapi: '/api/openapi'
-    },
-    documentation: {
-      openapi: '/api/openapi-auto/auto/openapi.json'
+      cache: '/api/cache'
     }
   }, 'API 服务正常运行')
 })
@@ -39,6 +34,5 @@ api.route('/users', users)
 api.route('/upload', upload)
 api.route('/health', health)
 api.route('/cache', cache)
-api.route('/openapi-auto', openapiAuto)
 
 export default api

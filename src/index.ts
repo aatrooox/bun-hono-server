@@ -9,6 +9,7 @@ import {
   securityHeaders,
   requestSizeLimit
 } from './middleware'
+import { openAPISpecs } from "hono-openapi";
 import api from './routes'
 import { initDatabase } from './db/migrate'
 import type { AppContext } from './types'
@@ -44,6 +45,19 @@ app.use('/uploads/*', serveStatic({
     return path.replace(/^\/uploads/, './uploads')
   }
 }))
+
+app.get(
+  "/openapi.json",
+  openAPISpecs(api, {
+    documentation: {
+      info: {
+        title: "Hono",
+        version: "1.0.0",
+        description: "API for greeting users",
+      },
+    },
+  }),
+);
 
 // API 路由
 app.route('/api', api)
