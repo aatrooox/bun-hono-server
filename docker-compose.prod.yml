@@ -17,7 +17,7 @@ services:
     environment:
       # 强制设置生产环境变量
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=4778
       # 可选：若使用容器内 SQLite，本变量可指定 DB 文件路径（不推荐生产本地存储）
       - DATABASE_URL=/data/database.sqlite
     volumes:
