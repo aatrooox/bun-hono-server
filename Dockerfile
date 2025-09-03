@@ -4,15 +4,15 @@ WORKDIR /app
 
 # 安装依赖阶段
 FROM base AS deps
-# 复制依赖配置文件
-COPY package.json bun.lockb ./
+# 复制依赖配置文件（使用正确的 Bun 锁文件名）
+COPY package.json bun.lock ./
 # 安装生产依赖
 RUN bun install --frozen-lockfile --production
 
 # 构建阶段
 FROM base AS builder
 # 复制依赖配置文件
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 # 安装所有依赖（包括开发依赖）
 RUN bun install --frozen-lockfile
 
@@ -36,6 +36,10 @@ COPY --from=deps --chown=hono:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=hono:nodejs /app/dist ./dist
 # 复制必要的配置文件
 COPY --from=builder --chown=hono:nodejs /app/package.json ./package.json
+# 复制健康检查脚本
+COPY --from=builder --chown=hono:nodejs /app/healthcheck.js ./healthcheck.js
+# 复制数据库迁移文件（运行时 drizzle migrator 需要 ./src/db/migrations 路径）
+COPY --from=builder --chown=hono:nodejs /app/src/db/migrations ./src/db/migrations
 
 # 创建必要的目录
 RUN mkdir -p uploads logs && chown -R hono:nodejs uploads logs
@@ -48,7 +52,7 @@ EXPOSE 3000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD bun run --bun /app/healthcheck.js
+  CMD ["bun", "/app/healthcheck.js"]
 
 # 启动应用
 CMD ["bun", "run", "start"]

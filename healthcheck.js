@@ -1,15 +1,18 @@
 // Docker 容器健康检查脚本
 const healthCheck = async () => {
   try {
-    const response = await fetch('http://localhost:4778/api/health', {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
+    const response = await fetch('http://localhost:3000/api/health', {
       method: 'GET',
       headers: {
         'User-Agent': 'Docker-HealthCheck/1.0'
       },
-      timeout: 3000
+      signal: controller.signal
     })
 
-    if (response.ok) {
+  clearTimeout(timer)
+  if (response.ok) {
       const data = await response.json()
       if (data.code === 200 && data.data?.status === 'healthy') {
         console.log('Health check passed')

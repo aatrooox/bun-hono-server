@@ -3,10 +3,13 @@ version: '3.8'
 services:
   # 应用服务 (生产环境)
   app:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    # 使用已发布到 Docker Hub 的镜像（占位示例，请替换为你的命名空间）
+    image: your-dockerhub-namespace/bun-hono-server:latest
     container_name: bun-hono-server-prod
+    # 如果需要本地构建发布，可改回 build：
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     ports:
       - "${APP_PORT:-3000}:3000"
     env_file:
@@ -15,14 +18,15 @@ services:
       # 强制设置生产环境变量
       - NODE_ENV=production
       - PORT=3000
+      # 可选：若使用容器内 SQLite，本变量可指定 DB 文件路径（不推荐生产本地存储）
+      - DATABASE_URL=/data/database.sqlite
     volumes:
-      # 仅挂载必要的文件 (生产环境不建议使用本地存储)
-      - ./logs:/app/logs
-      # 如果使用本地文件上传，取消下行注释
-      # - ./uploads:/app/uploads
+      - /root/logs/hono:/app/logs
+      - /root/assets/hono:/app/uploads
+      - /root/databases/hono:/data
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "bun", "/app/healthcheck.js"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -42,10 +46,17 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-      - /app/data  # 临时数据目录
+    # - /app/data  # 不再使用 /app/data 作为数据库目录
+    # 如选择通过宿主机端口连接 Redis/MySQL，可启用下方映射并在 env 中设置 REDIS_HOST=host.docker.internal
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
     networks:
       - app-network
+      - zzclub_common_internal
 
 networks:
   app-network:
     driver: bridge
+  zzclub_common_internal:
+    external: true
+    name: zzclub_common_internal
