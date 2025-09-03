@@ -4,7 +4,7 @@ services:
   # 应用服务 (生产环境)
   app:
     # 使用已发布到 Docker Hub 的镜像（占位示例，请替换为你的命名空间）
-    image: your-dockerhub-namespace/bun-hono-server:latest
+    image: gnakdogg/bun-hono-server
     container_name: bun-hono-server-prod
     # 如果需要本地构建发布，可改回 build：
     # build:
