@@ -59,6 +59,15 @@ jobs:
               DC="docker-compose"
             fi
 
+            # Load server-side env for compose variable interpolation (e.g., APP_PORT)
+            ENV_FILE="/root/envs/hono/.env"
+            if [ -f "$ENV_FILE" ]; then
+              set -a
+              . "$ENV_FILE"
+              set +a
+            fi
+            echo "Using APP_PORT=${APP_PORT:-not-set}"
+
             $DC -f docker-compose.prod.yml pull
             $DC -f docker-compose.prod.yml up -d
             docker image prune -f

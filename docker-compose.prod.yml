@@ -1,17 +1,16 @@
-version: '3.8'
-
 services:
   # 应用服务 (生产环境)
   app:
     # 使用已发布到 Docker Hub 的镜像（占位示例，请替换为你的命名空间）
     image: gnakdogg/bun-hono-server
+  platform: linux/amd64
     container_name: bun-hono-server-prod
     # 如果需要本地构建发布，可改回 build：
     # build:
     #   context: .
     #   dockerfile: Dockerfile
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_PORT:-4778}:4778"
     env_file:
       - /root/envs/hono/.env  # 生产环境配置文件路径
     environment:
