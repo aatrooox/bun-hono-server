@@ -70,6 +70,10 @@ async function createAdminUser() {
     
   } catch (error) {
     console.error('❌ 创建管理员账户失败:', error)
+    // 如果是作为模块导入使用，抛出错误而不是退出进程
+    if (!import.meta.main) {
+      throw error
+    }
     process.exit(1)
   }
 }
