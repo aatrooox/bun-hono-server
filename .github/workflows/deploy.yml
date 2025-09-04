@@ -76,20 +76,26 @@ jobs:
               set +a
               # Fallback: parse APP_PORT if not exported by 'source'
               if [ -z "${APP_PORT:-}" ]; then
-                APP_PORT=$(grep -E '^[[:space:]]*APP_PORT[[:space:]]*=' "$ENV_FILE" | tail -n1 | sed -E 's/^[[:space:]]*APP_PORT[[:space:]]*=[[:space:]]*//; s/[[:space:]]*$//')
+                # Try both APP_PORT and PORT from env file
+                APP_PORT=$(grep -E '^[[:space:]]*(APP_PORT|PORT)[[:space:]]*=' "$ENV_FILE" | tail -n1 | sed -E 's/^[[:space:]]*(APP_PORT|PORT)[[:space:]]*=[[:space:]]*//; s/[[:space:]]*$//')
                 export APP_PORT
               fi
             else
               echo "Env file not found at $ENV_FILE"
             fi
-            echo "Using APP_PORT=${APP_PORT:-not-set}"
+            echo "Using APP_PORT=${APP_PORT:-not-set}, PORT=${PORT:-not-set}"
 
             echo "=== Validating compose file ==="
-            if ! $DC -f docker-compose.prod.yml config -q; then
-              echo "Compose validation failed, showing config:"
-              $DC -f docker-compose.prod.yml config || true
+            echo "Checking if docker-compose.prod.yml exists:"
+            ls -la docker-compose.prod.yml
+            if ! $DC -f docker-compose.prod.yml config -q 2>&1; then
+              echo "Compose validation failed, showing config with errors:"
+              $DC -f docker-compose.prod.yml config 2>&1 || true
+              echo "=== Raw compose file content ==="
+              cat docker-compose.prod.yml
               exit 1
             fi
+            echo "Compose validation passed"
 
             echo "=== Pulling images ==="
             if ! $DC -f docker-compose.prod.yml pull --platform linux/amd64; then
