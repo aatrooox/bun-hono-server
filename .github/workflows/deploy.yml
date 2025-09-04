@@ -52,16 +52,25 @@ jobs:
             set -euo pipefail
             cd "${{ env.REMOTE_APP_DIR }}"
 
+            echo "=== Current directory and files ==="
+            pwd
+            ls -la
+
             # Prefer new plugin 'docker compose', fallback to legacy 'docker-compose'
             if docker compose version >/dev/null 2>&1; then
               DC="docker compose"
+              echo "Using: docker compose"
             else
               DC="docker-compose"
+              echo "Using: docker-compose"
             fi
 
             # Load server-side env for compose variable interpolation (e.g., APP_PORT)
             ENV_FILE="/root/envs/hono/.env"
+            echo "=== Checking env file: $ENV_FILE ==="
             if [ -f "$ENV_FILE" ]; then
+              echo "Env file exists, content preview:"
+              head -10 "$ENV_FILE" | grep -E '^[A-Z_]|^#' || echo "No env vars found"
               set -a
               . "$ENV_FILE"
               set +a
@@ -70,15 +79,31 @@ jobs:
                 APP_PORT=$(grep -E '^[[:space:]]*APP_PORT[[:space:]]*=' "$ENV_FILE" | tail -n1 | sed -E 's/^[[:space:]]*APP_PORT[[:space:]]*=[[:space:]]*//; s/[[:space:]]*$//')
                 export APP_PORT
               fi
+            else
+              echo "Env file not found at $ENV_FILE"
             fi
             echo "Using APP_PORT=${APP_PORT:-not-set}"
 
-            # Optional: validate compose file after interpolation
-            $DC -f docker-compose.prod.yml config -q
+            echo "=== Validating compose file ==="
+            if ! $DC -f docker-compose.prod.yml config -q; then
+              echo "Compose validation failed, showing config:"
+              $DC -f docker-compose.prod.yml config || true
+              exit 1
+            fi
 
-            # Pull with explicit platform for consistency (optional but recommended)
-            $DC -f docker-compose.prod.yml pull --platform linux/amd64
+            echo "=== Pulling images ==="
+            if ! $DC -f docker-compose.prod.yml pull --platform linux/amd64; then
+              echo "Pull failed, trying without platform flag:"
+              $DC -f docker-compose.prod.yml pull || exit 1
+            fi
+
+            echo "=== Starting services ==="
             $DC -f docker-compose.prod.yml up -d
+
+            echo "=== Service status ==="
+            $DC -f docker-compose.prod.yml ps
+
+            echo "=== Cleaning up ==="
             docker image prune -f
 
       - name: Verify container health
