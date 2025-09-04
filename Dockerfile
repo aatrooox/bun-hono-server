@@ -41,8 +41,10 @@ COPY --from=builder --chown=hono:nodejs /app/healthcheck.js ./healthcheck.js
 # 复制数据库迁移文件（运行时 drizzle migrator 需要 ./src/db/migrations 路径）
 COPY --from=builder --chown=hono:nodejs /app/src/db/migrations ./src/db/migrations
 
-# 创建必要的目录
-RUN mkdir -p uploads logs && chown -R hono:nodejs uploads logs
+# 创建必要的目录并设置权限
+RUN mkdir -p uploads logs data && \
+  chown -R hono:nodejs uploads logs data && \
+  chmod -R 755 uploads logs data
 
 # 切换到非 root 用户
 USER hono

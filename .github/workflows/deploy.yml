@@ -104,6 +104,11 @@ jobs:
             fi
 
             echo "=== Starting services ==="
+            # Ensure proper permissions for mounted directories
+            # Container user hono has UID 1001, set ownership accordingly
+            sudo chown -R 1001:1001 /root/logs/hono /root/assets/hono /root/databases/hono 2>/dev/null || true
+            sudo chmod -R 755 /root/logs/hono /root/assets/hono /root/databases/hono 2>/dev/null || true
+            
             $DC -f docker-compose.prod.yml up -d
 
             echo "=== Service status ==="
