@@ -6,8 +6,8 @@ WORKDIR /app
 FROM base AS deps
 # 复制依赖配置文件（使用正确的 Bun 锁文件名）
 COPY package.json bun.lock ./
-# 安装生产依赖
-RUN bun install --frozen-lockfile --production
+# 安装所有依赖（包括 pino-pretty），因为生产环境可能需要日志美化
+RUN bun install --frozen-lockfile
 
 # 构建阶段
 FROM base AS builder
