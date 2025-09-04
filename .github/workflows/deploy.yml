@@ -121,14 +121,38 @@ jobs:
           script: |
             set -e
             cname="bun-hono-server-prod"
+            
+            echo "=== Initial container status ==="
+            docker ps -a --filter name="$cname" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            echo "=== Container logs (last 50 lines) ==="
+            docker logs --tail 50 "$cname" 2>&1 || echo "No logs available"
+            
+            echo "=== Checking health status ==="
             for i in $(seq 1 10); do
               status=$(docker inspect -f '{{ .State.Health.Status }}' "$cname" 2>/dev/null || echo "starting")
-              echo "[$i] Health: $status"
+              container_status=$(docker inspect -f '{{ .State.Status }}' "$cname" 2>/dev/null || echo "unknown")
+              echo "[$i] Health: $status, Container: $container_status"
+              
               if [ "$status" = "healthy" ]; then
+                echo "Container is healthy!"
                 exit 0
               fi
+              
+              # If container is restarting, show recent logs
+              if [ "$container_status" = "restarting" ]; then
+                echo "Container is restarting, showing recent logs:"
+                docker logs --tail 10 "$cname" 2>&1 || true
+              fi
+              
               sleep 6
             done
-            echo "Container not healthy in time" >&2
-            docker ps
+            
+            echo "=== Final diagnosis ==="
+            echo "Container not healthy in time"
+            docker ps -a --filter name="$cname"
+            echo "=== Full container logs ==="
+            docker logs "$cname" 2>&1 || echo "No logs available"
+            echo "=== Container inspect (relevant fields) ==="
+            docker inspect "$cname" --format '{{json .State}}' | jq '.' 2>/dev/null || docker inspect "$cname" --format '{{.State}}'
             exit 1
