@@ -1,16 +1,15 @@
-# Caddy 配置示例
-# 将此配置添加到您的 Caddyfile 中
+# Caddy 配置示例 - Bun Hono Server
+# 替换 your-domain.com 为您的实际域名
 
-# 基本反向代理配置
 your-domain.com {
     # 反向代理到 Bun Hono 应用
-    reverse_proxy localhost:3000 {
-        # 健康检查
+    reverse_proxy 127.0.0.1:4778 {
+        # 健康检查（5分钟一次，适合稳定服务）
         health_uri /api/health
-        health_interval 30s
+        health_interval 5m
         health_timeout 10s
         
-        # 请求头处理
+        # 请求头传递
         header_up Host {host}
         header_up X-Real-IP {remote}
         header_up X-Forwarded-For {remote}
@@ -18,68 +17,71 @@ your-domain.com {
         header_up X-Forwarded-Host {host}
     }
     
-    # 日志记录
-    log {
-        output file /var/log/caddy/bun-hono-server.log {
-            roll_size 100mb
-            roll_keep 5
-        }
-        format json
+    # 请求体大小限制（与应用内 MAX_FILE_SIZE 保持一致）
+    request_body {
+        max_size 10MB
     }
     
     # 启用压缩
     encode gzip zstd
     
-    # 安全头部
+    # CORS 配置
+    @cors_preflight {
+        method OPTIONS
+    }
+    handle @cors_preflight {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+            Access-Control-Max-Age "86400"
+        }
+        respond 204
+    }
+    
+    # 安全头部配置
     header {
-        # 删除服务器版本信息
+        # 移除服务器信息
         -Server
         
-        # 安全相关头部
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy strict-origin-when-cross-origin
+        # 内容安全策略 (根据应用需求调整)
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
         
-        # HTTPS 安全传输
+        # 基础安全头
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # HTTPS 强制 (仅在 HTTPS 环境下启用)
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # 权限策略
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        
+        # CORS 头 (对所有请求)
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Credentials "false"
     }
     
-    # 静态文件缓存 (如果使用本地文件存储)
-    @static {
-        path /uploads/* /static/*
+    # 上传文件安全策略（防止恶意文件执行）
+    @uploads {
+        path /uploads/*
     }
-    handle @static {
-        header Cache-Control "public, max-age=31536000"
-        reverse_proxy localhost:3000
-    }
-    
-    # API 路由不缓存
-    @api {
-        path /api/*
-    }
-    handle @api {
-        header Cache-Control "no-cache, no-store, must-revalidate"
-        reverse_proxy localhost:3000
+    handle @uploads {
+        header {
+            # 防止上传文件被当作脚本执行
+            Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'"
+            X-Content-Type-Options "nosniff"
+            X-Download-Options "noopen"
+            # 长期缓存（文件内容不变）
+            Cache-Control "public, max-age=31536000, immutable"
+        }
+        reverse_proxy 127.0.0.1:4778
     }
 }
 
-# 如果需要 www 重定向
-www.your-domain.com {
+# HTTP 到 HTTPS 重定向 (推荐)
+http://your-domain.com {
     redir https://your-domain.com{uri} permanent
-}
-
-# API 子域名配置 (可选)
-api.your-domain.com {
-    reverse_proxy localhost:3000 {
-        health_uri /api/health
-    }
-    
-    # API 专用的 CORS 和安全配置
-    header {
-        Access-Control-Allow-Origin "https://your-frontend-domain.com"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-        Access-Control-Allow-Credentials true
-    }
 }

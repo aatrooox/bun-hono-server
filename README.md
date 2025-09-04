@@ -1,5 +1,7 @@
 # Bun Hono Server 🚀
 
+> 用于快速搭建起后台服务，验证需求，快速上线
+
 一个基于 Bun 和 Hono 构建的现代化、高性能的 Web 服务器模板，具备完整的用户认证、数据库集成和 API 开发功能。
 
 ## ✨ 特性
@@ -14,6 +16,7 @@
 - 📝 **输入验证**: Zod schema 验证，统一错误处理
 - 🌐 **统一响应**: 标准化 API 响应格式和错误码
 - 🔧 **开发友好**: 热重载，完整的开发工具链
+- 🔧 **接口文档**: 静态分析生成，业务零侵入，轻度约束，输出标准 openapi.json
 
 ## 🛠️ 技术栈
 
@@ -49,6 +52,8 @@ cp .env.example .env
 
 ### 3. 初始化数据库
 
+> 实际上代码内每次初始化会运行一遍 migrations，所以有变化时生成一次文件即可
+
 ```bash
 # 生成数据库迁移文件
 bun run db:generate
@@ -59,11 +64,13 @@ bun run db:migrate
 
 ### 4. 启动开发服务器
 
+> 本地服务端口可以在 env 配置，线上端口依赖于 docker-compose-prod 的配置（写死）
+
 ```bash
 bun run dev
 ```
 
-服务器将在 http://localhost:3000 启动
+服务器将在 http://localhost:4778 启动
 
 ## ⚡ Redis 缓存功能
 
