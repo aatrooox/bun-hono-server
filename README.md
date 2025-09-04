@@ -113,11 +113,11 @@ api.get('/products/:id',
 在 `.env` 文件中配置 Redis 连接：
 
 ```env
-REDIS_HOST=localhost
+REDIS_HOST=localhost # 生产环境要配 redis 服务的容器名
 REDIS_PORT=6379
 REDIS_PASSWORD=your-password  # 可选
-REDIS_DB=0
-REDIS_KEY_PREFIX=bun-hono:
+REDIS_DB=0 # 注意区分其他服务使用的数据库
+REDIS_KEY_PREFIX=bun-hono: # 自定义
 ```
 
 ## 📡 API 接口示例
@@ -220,7 +220,7 @@ GET /api/upload/exists/:path
 DELETE /api/upload/:path
 ```
 
-📚 **详细文档**: 查看 [UPLOAD_API.md](UPLOAD_API.md) 获取完整的文件上传API文档
+📚 **详细文档**: 查看 [UPLOAD_API.md](./docs/UPLOAD_API.md) 获取完整的文件上传API文档
 
 
 
@@ -362,12 +362,14 @@ bun run db:studio       # 打开数据库管理界面
 
 ```bash
 # 数据库配置
+# 生产环境在 docker-compose-prod 中配置，会覆盖.env，一般也会做持久化
 DATABASE_URL=./database.sqlite
 
 # JWT 配置（生产环境请使用强密钥）
 JWT_SECRET=your-super-secret-jwt-key-please-change-this-in-production
 
 # 服务器配置
+# 生产环境在 docker-compose-prod 中配置，会覆盖.env
 PORT=3000
 NODE_ENV=development
 
@@ -390,7 +392,7 @@ LOG_LEVEL=debug           # 日志级别: trace, debug, info, warn, error
 - 控制台输出：彩色格式化的日志，便于开发调试
 - 日志目录：`./logs/` （自动创建，目前仅预留）
 
-**生产环境：**
+**生产环境：** （要配置持久化）
 - 控制台输出：JSON 格式的结构化日志
 - 建议配置：通过 Docker 或进程管理器收集日志到外部系统
 
@@ -425,16 +427,6 @@ export const logger = pino({
     ]
   }
 })
-```
-
-**2. 日志轮转（推荐生产环境）：**
-```bash
-# 使用 pm2 管理日志
-npm install -g pm2
-pm2 start ecosystem.config.js
-
-# 或使用 Docker 收集日志
-docker run -d --log-driver=json-file --log-opt max-size=100m --log-opt max-file=3
 ```
 
 ### 日志功能特性
@@ -514,56 +506,31 @@ bun run start
 
 ### Docker 部署
 
-项目优化了 Docker Compose 配置，使用 `env_file` 替代冗长的 `environment` 配置，更加简洁和易维护。
+Docker Compose 配置，使用 `env_file` 配置。
 
 #### 快速部署
-```bash
-# 使用交互式部署脚本
-./deploy.sh
 
-# 或者直接指定部署模式
-./deploy.sh dev    # 开发环境
-./deploy.sh prod   # 生产环境
-./deploy.sh app    # 仅应用服务
-```
+参考 [DEPLOY.md](./DEPLOY.md) 获取详细步骤以及前置环境。
 
 #### 1. 开发环境 (包含开发用 Redis)
-```bash
-# 使用部署脚本
-./deploy.sh dev
 
-# 或直接使用 docker-compose
-docker-compose --profile dev up -d
-```
+自行启动本地 redis 服务，只要能连接 localhost:6379 即可。
 
 **配置文件**: 直接使用本地 `.env` 文件
 
 #### 2. 生产环境 (连接外部 MySQL + Redis)
+
+生产环境的 env，需要自行维护，和 docker-compose 里配置的 env_file 保持一致
+
 ```bash
-# 1. 复制并配置生产环境变量
+# 1. 复制并配置生产环境变量 也可以叫.env 
 cp .env.prod.example .env.prod
 # 编辑 .env.prod，配置数据库和 Redis 连接信息
-
-# 2. 启动生产环境
-./deploy.sh prod
-
-# 或直接使用 docker-compose
-docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-**配置文件**: 
+**比如：配置文件**: 
 - 服务器部署: `/root/envs/hono/.env`
 - 本地测试: `.env.prod`
-
-#### 3. 仅应用服务 (连接外部服务)
-```bash
-# 配置 .env 文件中的外部服务连接信息
-REDIS_HOST=your-redis-host
-DATABASE_URL=mysql://user:pass@host:port/db
-
-# 启动仅应用服务
-./deploy.sh app
-```
 
 ### 生产环境配置要点
 
@@ -590,6 +557,8 @@ COS_REGION=ap-beijing
 ```
 
 ### Caddy 反向代理配置
+
+> 仅供参考，自行配置
 
 项目包含 Caddy 配置示例，自动处理 SSL 证书：
 
@@ -661,10 +630,3 @@ docker logs -f bun-hono-server-prod
 ## 📄 许可证
 
 这个项目使用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 🙏 致谢
-
-- [Bun](https://bun.sh/) - 超快的 JavaScript 运行时
-- [Hono](https://hono.dev/) - 快速、轻量级的 Web 框架
-- [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM
-- [Zod](https://zod.dev/) - TypeScript 优先的验证库
