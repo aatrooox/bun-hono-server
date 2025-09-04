@@ -619,7 +619,7 @@ docker-compose logs -f app
 #### 健康检查
 ```bash
 # 应用健康检查
-curl http://localhost:3000/api/health
+curl http://localhost:4778/api/health
 
 # Docker 健康状态
 docker inspect --format='{{.State.Health}}' bun-hono-server-prod

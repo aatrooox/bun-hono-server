@@ -113,14 +113,21 @@ jobs:
             if ! docker network ls | grep -q zzclub_common_internal; then
               echo "Creating external network zzclub_common_internal"
               docker network create zzclub_common_internal
+            else
+              echo "External network zzclub_common_internal already exists"
             fi
             
             # Check if Redis container is running and connected to the network
             if docker ps --format '{{.Names}}' | grep -q zzclub_redis_server; then
-              echo "Redis container found, ensuring it's on the correct network"
-              docker network connect zzclub_common_internal zzclub_redis_server 2>/dev/null || echo "Redis already connected to network"
+              echo "Redis container found and running"
+              # Test Redis connectivity
+              if docker exec zzclub_redis_server redis-cli ping >/dev/null 2>&1; then
+                echo "✓ Redis service is responding"
+              else
+                echo "✗ Redis service is not responding"
+              fi
             else
-              echo "WARNING: zzclub_redis_server container not found"
+              echo "WARNING: zzclub_redis_server container not found or not running"
             fi
             
             $DC -f docker-compose.prod.yml up -d
@@ -132,34 +139,27 @@ jobs:
             # Check if our container can reach Redis
             if docker ps --format '{{.Names}}' | grep -q bun-hono-server-prod; then
               echo "Testing Redis connectivity from app container:"
-              # Use Node.js/Bun to test TCP connection instead of ping/nslookup
+              # Simple and reliable Redis connection test
               docker exec bun-hono-server-prod bun -e "
-                try {
-                  const net = require('net');
-                  const socket = new net.Socket();
-                  socket.setTimeout(3000);
-                  socket.connect(6379, 'zzclub_redis_server', () => {
-                    console.log('✓ Redis TCP connection successful');
-                    socket.destroy();
-                  });
-                  socket.on('error', (err) => {
-                    console.log('✗ Redis connection failed:', err.message);
-                    socket.destroy();
-                  });
-                  socket.on('timeout', () => {
-                    console.log('✗ Redis connection timeout');
-                    socket.destroy();
-                  });
-                } catch(e) {
-                  console.log('✗ Connection test error:', e.message);
-                }
-              " 2>/dev/null || echo "Network test failed"
+                const net = require('net');
+                const socket = new net.Socket();
+                socket.setTimeout(3000);
+                socket.connect(6379, 'zzclub_redis_server', () => {
+                  console.log('✓ Redis TCP connection successful');
+                  socket.destroy();
+                });
+                socket.on('error', (err) => {
+                  console.log('✗ Redis connection failed:', err.message);
+                  socket.destroy();
+                });
+                socket.on('timeout', () => {
+                  console.log('✗ Redis connection timeout');
+                  socket.destroy();
+                });
+              " || echo "Network test completed"
               
-              echo "App container environment variables:"
-              docker exec bun-hono-server-prod env | grep -E 'REDIS|NODE_ENV' || echo "No Redis env vars found"
-              
-              echo "Network inspection:"
-              docker inspect bun-hono-server-prod --format '{{range .NetworkSettings.Networks}}{{.NetworkID}} {{end}}' 2>/dev/null || true
+              echo "App container Redis configuration:"
+              docker exec bun-hono-server-prod env | grep 'REDIS_HOST\|REDIS_PORT\|REDIS_DB' || echo "Redis env vars not found"
             fi
 
             echo "=== Cleaning up ==="
@@ -182,13 +182,13 @@ jobs:
             docker logs --tail 50 "$cname" 2>&1 || echo "No logs available"
             
             echo "=== Checking health status ==="
-            for i in $(seq 1 10); do
+            for i in $(seq 1 8); do
               status=$(docker inspect -f '{{ .State.Health.Status }}' "$cname" 2>/dev/null || echo "starting")
               container_status=$(docker inspect -f '{{ .State.Status }}' "$cname" 2>/dev/null || echo "unknown")
               echo "[$i] Health: $status, Container: $container_status"
               
               if [ "$status" = "healthy" ]; then
-                echo "Container is healthy!"
+                echo "✅ Container is healthy! Deployment successful."
                 exit 0
               fi
               
@@ -198,7 +198,7 @@ jobs:
                 docker logs --tail 10 "$cname" 2>&1 || true
               fi
               
-              sleep 6
+              sleep 8
             done
             
             echo "=== Final diagnosis ==="
