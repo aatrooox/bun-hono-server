@@ -65,10 +65,19 @@ jobs:
               set -a
               . "$ENV_FILE"
               set +a
+              # Fallback: parse APP_PORT if not exported by 'source'
+              if [ -z "${APP_PORT:-}" ]; then
+                APP_PORT=$(grep -E '^[[:space:]]*APP_PORT[[:space:]]*=' "$ENV_FILE" | tail -n1 | sed -E 's/^[[:space:]]*APP_PORT[[:space:]]*=[[:space:]]*//; s/[[:space:]]*$//')
+                export APP_PORT
+              fi
             fi
             echo "Using APP_PORT=${APP_PORT:-not-set}"
 
-            $DC -f docker-compose.prod.yml pull
+            # Optional: validate compose file after interpolation
+            $DC -f docker-compose.prod.yml config -q
+
+            # Pull with explicit platform for consistency (optional but recommended)
+            $DC -f docker-compose.prod.yml pull --platform linux/amd64
             $DC -f docker-compose.prod.yml up -d
             docker image prune -f
 

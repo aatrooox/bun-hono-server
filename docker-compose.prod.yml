@@ -10,7 +10,7 @@ services:
     #   context: .
     #   dockerfile: Dockerfile
     ports:
-      - "${APP_PORT:-4778}:3000"
+      - "4778:3000"
     env_file:
       - /root/envs/hono/.env  # 生产环境配置文件路径
     environment:
