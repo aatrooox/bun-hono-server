@@ -26,7 +26,7 @@ services:
     restart: always
     healthcheck:
       test: ["CMD", "bun", "/app/healthcheck.js"]
-      interval: 30s
+      interval: 10m
       timeout: 10s
       retries: 5
       start_period: 60s

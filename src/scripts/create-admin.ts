@@ -7,9 +7,10 @@ import { db, users } from '../db'
 import { HashUtils } from '../utils'
 import { eq } from 'drizzle-orm'
 
-const ADMIN_EMAIL = 'admin@example.com'
-const ADMIN_PASSWORD = 'admin123456' // 建议在生产环境中使用更强的密码
-const ADMIN_NAME = '系统管理员'
+// 从环境变量获取管理员配置，如果没有则使用默认值
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com'
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123456' // 建议在生产环境中使用更强的密码
+const ADMIN_NAME = process.env.ADMIN_NAME || '系统管理员'
 
 async function createAdminUser() {
   try {

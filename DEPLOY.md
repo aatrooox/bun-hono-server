@@ -60,6 +60,11 @@ DATABASE_URL=/data/database.sqlite
 # JWT 配置
 JWT_SECRET=your-jwt-secret-key-here
 
+# 管理员账户配置（初始化时创建）
+ADMIN_EMAIL=admin@yourcompany.com
+ADMIN_PASSWORD=your-secure-admin-password
+ADMIN_NAME=系统管理员
+
 # 服务器配置
 PORT=4778
 NODE_ENV=production
@@ -231,6 +236,9 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | `REDIS_PORT` | Redis 端口 | `6379` |
 | `REDIS_DB` | Redis 数据库编号 | `3` |
 | `JWT_SECRET` | JWT 密钥 | **必须设置** |
+| `ADMIN_EMAIL` | 管理员邮箱 | **必须设置** |
+| `ADMIN_PASSWORD` | 管理员密码 | **必须设置** |
+| `ADMIN_NAME` | 管理员名称 | `系统管理员` |
 
 ---
 

@@ -9,6 +9,7 @@
     "db:generate": "drizzle-kit generate:sqlite",
     "db:migrate": "bun run src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
+    "script:admin": "bun run src/scripts/create-admin.ts",
     "docs:generate": "bun run scripts/generate-openapi.ts",
     "docs:watch": "bun run scripts/generate-openapi.ts --watch"
   },

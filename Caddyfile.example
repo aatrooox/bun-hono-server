@@ -5,9 +5,9 @@ your-domain.com {
     # 反向代理到 Bun Hono 应用
     reverse_proxy 127.0.0.1:4778 {
         # 健康检查（5分钟一次，适合稳定服务）
-        health_uri /api/health
-        health_interval 5m
-        health_timeout 10s
+        # health_uri /api/health
+        # health_interval 5m
+        # health_timeout 10s
         
         # 请求头传递
         header_up Host {host}
