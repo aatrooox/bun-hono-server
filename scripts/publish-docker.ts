@@ -83,8 +83,9 @@ async function main() {
   // log('info', '开始登录 Docker Hub')
   // await $`docker login -u ${user} -p ${token}`
 
-  log('build', '构建镜像', { image: registryImageVersion })
-  await $`docker build -t ${registryImageVersion} -t ${registryImageLatest} .`
+  const buildPlatform = process.env.DOCKER_BUILD_PLATFORM || 'linux/amd64'
+  log('build', '构建镜像', { image: registryImageVersion, platform: buildPlatform })
+  await $`docker build --platform=${buildPlatform} -t ${registryImageVersion} -t ${registryImageLatest} .`
 
   for (const tag of extraTagImages) {
     log('tag', '添加额外标签', { tag })
