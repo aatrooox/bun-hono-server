@@ -1,6 +1,6 @@
 {
   "name": "bun-hono-server",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A fast and modern web server template built with Bun and Hono",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
