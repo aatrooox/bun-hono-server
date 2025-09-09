@@ -17,12 +17,14 @@ import {
 import { StorageAdapterFactory } from '../utils/storage/base'
 import { LocalStorageAdapter } from '../utils/storage/local'
 import { COSStorageAdapter } from '../utils/storage/cos'
+import { S3StorageAdapter } from '../utils/storage/s3'
 import { ImageProcessor } from '../utils/imageProcessor'
 import { logger } from '../utils/logger'
 
 // 注册所有存储适配器
 StorageAdapterFactory.register('local', LocalStorageAdapter)
 StorageAdapterFactory.register('cos', COSStorageAdapter)
+StorageAdapterFactory.register('s3', S3StorageAdapter)
 
 export class FileUploadService {
   private adapter: StorageAdapter

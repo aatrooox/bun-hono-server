@@ -1,6 +1,6 @@
 {
   "name": "bun-hono-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A fast and modern web server template built with Bun and Hono",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
@@ -14,6 +14,9 @@
     "docs:watch": "bun run scripts/generate-openapi.ts --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.884.0",
+    "@aws-sdk/protocol-http": "^3.374.0",
+    "@aws-sdk/s3-request-presigner": "^3.884.0",
     "@hono/standard-validator": "^0.1.5",
     "@hono/zod-validator": "^0.2.0",
     "@types/sharp": "^0.32.0",

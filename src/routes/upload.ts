@@ -23,6 +23,10 @@ import {
 import { authMiddleware } from '../middleware/auth'
 import { uploadSecurityMiddleware } from '../middleware/uploadSecurity'
 import { logger } from '../utils/logger'
+import { getUploadConfig, getS3StorageConfig, getCOSStorageConfig } from '../config/upload'
+import { S3StorageAdapter } from '../utils/storage/s3'
+import { COSStorageAdapter } from '../utils/storage/cos'
+import { adminMiddleware } from '@/middleware'
 
 const upload = new Hono<AppContext>()
 const uploadLogger = logger.child({ module: 'upload-routes' })
@@ -410,3 +414,78 @@ upload.get('/exists/:path{.+}',
 )
 
 export default upload
+
+// ================== 预签名 URL 接口 ==================
+
+// 生成对象存储预签名 URL (支持 s3 / cos)
+upload.get('/presign', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const storageType = getUploadConfig().storageType
+    if (!['s3', 'cos'].includes(storageType)) {
+      return c.get('error')(400, '当前存储类型不支持预签名 URL: ' + storageType)
+    }
+    const key = c.req.query('key')
+    if (!key) {
+      return c.get('error')(400, '缺少 key 参数')
+    }
+    const expireSeconds = c.req.query('expire') ? parseInt(c.req.query('expire')!, 10) : undefined
+    const contentLength = c.req.query('content-length') ? parseInt(c.req.query('content-length')!, 10) : undefined
+    const forceDownload = c.req.query('force-download') === 'true'
+    const noWait = c.req.query('no-wait') ? parseInt(c.req.query('no-wait')!, 10) : undefined
+    const maxRequests = c.req.query('max-requests') ? parseInt(c.req.query('max-requests')!, 10) : undefined
+    const limitRate = c.req.query('limit-rate') ? parseInt(c.req.query('limit-rate')!, 10) : undefined
+
+    // 构建自定义查询
+    const customQuery: Record<string, number> = {}
+    if (noWait && noWait > 0) customQuery['no-wait'] = Math.min(noWait, 10)
+    if (maxRequests && maxRequests > 0) customQuery['x-bitiful-max-requests'] = maxRequests
+    if (limitRate && limitRate > 0) customQuery['x-bitiful-limit-rate'] = limitRate
+
+    if (storageType === 's3') {
+      const cfg = getS3StorageConfig() as any
+      const adapter = new S3StorageAdapter({
+        accessKeyId: cfg.accessKeyId,
+        secretAccessKey: cfg.secretAccessKey,
+        bucket: cfg.bucket,
+        region: cfg.region,
+        endpoint: cfg.endpoint,
+        forcePathStyle: cfg.forcePathStyle,
+        presignDefaultExpire: cfg.presignDefaultExpire,
+        presignMaxExpire: cfg.presignMaxExpire
+      })
+      const { getUrl, putUrl } = await adapter.generatePresignedUrls({
+        key,
+        expireSeconds,
+        contentLength,
+        forceDownload,
+        customQuery
+      })
+      return c.get('success')({ getUrl, putUrl, provider: 's3' }, '生成预签名 URL 成功')
+    }
+
+    if (storageType === 'cos') {
+      // COS SDK 自带临时签名（与 S3 略不同），这里只实现 GET/PUT 的简易兼容
+      const cfg = getCOSStorageConfig() as any
+      const adapter = new COSStorageAdapter({
+        secretId: cfg.secretId,
+        secretKey: cfg.secretKey,
+        bucket: cfg.bucket,
+        region: cfg.region,
+        domain: cfg.domain,
+        prefix: cfg.prefix,
+        https: cfg.https,
+        appId: cfg.appId
+      })
+      // 直接用 COS 的 getSignedUrl 方式（当前适配器已有 getSignedUrl 方法）
+      const getUrl = await adapter.getSignedUrl(key, expireSeconds || 3600)
+      // PUT 需要不同方法：手动构造（简单场景）
+      // 由于当前 COS 适配器未实现 put 预签名，这里暂不提供 PUT 预签名（可后续扩展）
+      return c.get('success')({ getUrl, putUrl: null, provider: 'cos', note: 'COS 暂未实现 PUT 预签名支持' }, '生成 COS 预签名 URL 成功')
+    }
+  } catch (error: any) {
+    uploadLogger.error({
+      error: { name: error.name, message: error.message, stack: error.stack }
+    }, '生成预签名 URL 失败')
+    return c.get('error')(500, '生成预签名 URL 失败: ' + error.message)
+  }
+})

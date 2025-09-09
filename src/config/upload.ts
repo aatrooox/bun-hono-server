@@ -77,11 +77,15 @@ const defaultUploadConfig = {
   
   // AWS S3配置
   s3: {
-    accessKeyId: getEnvString('S3_ACCESS_KEY_ID', ''),
-    secretAccessKey: getEnvString('S3_SECRET_ACCESS_KEY', ''),
-    bucket: getEnvString('S3_BUCKET', ''),
-    region: getEnvString('S3_REGION', 'us-east-1'),
-    endpoint: process.env.S3_ENDPOINT
+  // 支持 Bitiful 作为后备（如果 S3_* 未配置，尝试 BITIFUL_*）
+  accessKeyId: getEnvString('S3_ACCESS_KEY_ID', process.env.BITIFUL_ACCESS_KEY_ID || ''),
+  secretAccessKey: getEnvString('S3_SECRET_ACCESS_KEY', process.env.BITIFUL_SECRET_ACCESS_KEY || ''),
+  bucket: getEnvString('S3_BUCKET', process.env.BITIFUL_BUCKET || ''),
+  region: getEnvString('S3_REGION', process.env.BITIFUL_REGION || 'us-east-1'),
+  endpoint: process.env.S3_ENDPOINT || process.env.BITIFUL_ENDPOINT,
+  forcePathStyle: getEnvBoolean('S3_FORCE_PATH_STYLE', process.env.BITIFUL_FORCE_PATH_STYLE === 'true'),
+  presignDefaultExpire: getEnvNumber('S3_PRESIGN_DEFAULT_EXPIRE', parseInt(process.env.BITIFUL_PRESIGN_DEFAULT_EXPIRE || '3600', 10)),
+  presignMaxExpire: getEnvNumber('S3_PRESIGN_MAX_EXPIRE', parseInt(process.env.BITIFUL_PRESIGN_MAX_EXPIRE || String(24 * 3600), 10))
   },
   
   // 阿里云OSS配置
@@ -193,23 +197,38 @@ export function getLocalStorageConfig(): LocalStorageConfig {
 // 获取腾讯云COS配置
 export function getCOSStorageConfig(): COSStorageConfig {
   const config = getEnvironmentUploadConfig()
-  
-  // 验证必需的COS配置
+  // 基础必填字段
   const requiredFields = {
     secretId: config.cos.secretId,
     secretKey: config.cos.secretKey,
     bucket: config.cos.bucket,
     region: config.cos.region
   }
-  
-  const missing = Object.entries(requiredFields)
-    .filter(([_, value]) => !value)
-    .map(([key, _]) => key)
-  
-  if (missing.length > 0) {
-    throw new Error(`腾讯云COS配置缺失: ${missing.join(', ')}`)
+
+  const missing: string[] = Object.entries(requiredFields)
+    .filter(([, value]) => !value)
+    .map(([key]) => key)
+
+  // appId 逻辑：如果 bucket 未包含 -appid 后缀且未显式提供 appId，则提示（COS 规范：bucketname-appid）
+  const bucket = config.cos.bucket
+  const bucketHasAppIdSuffix = /-\d+$/.test(bucket || '')
+  if (!bucketHasAppIdSuffix && !config.cos.appId) {
+    // 不硬性要求，但建议提供——列入提示
+    missing.push('appId(建议, bucket 未包含 -appid 后缀)')
   }
-  
+
+  if (missing.length > 0) {
+    const debugInfo = {
+      secretId: !!config.cos.secretId,
+      secretKey: !!config.cos.secretKey,
+      bucket: bucket || false,
+      region: config.cos.region || false,
+      appId: config.cos.appId ? true : false,
+      bucketHasAppIdSuffix
+    }
+    throw new Error(`腾讯云COS配置缺失或不完整: ${missing.join(', ')}; 已检测: ${JSON.stringify(debugInfo)}`)
+  }
+
   return {
     appId: config.cos.appId,
     secretId: config.cos.secretId,
@@ -227,22 +246,41 @@ export function getCOSStorageConfig(): COSStorageConfig {
  */
 export function getS3StorageConfig() {
   const config = getEnvironmentUploadConfig()
-  
-  const requiredFields = {
+  // 基础必填
+  const baseRequired = {
     accessKeyId: config.s3.accessKeyId,
     secretAccessKey: config.s3.secretAccessKey,
     bucket: config.s3.bucket,
     region: config.s3.region
   }
-  
-  const missing = Object.entries(requiredFields)
-    .filter(([_, value]) => !value)
-    .map(([key, _]) => key)
-  
-  if (missing.length > 0) {
-    throw new Error(`AWS S3配置缺失: ${missing.join(', ')}`)
+
+  const missing: string[] = Object.entries(baseRequired)
+    .filter(([, value]) => !value)
+    .map(([key]) => key)
+
+  // 识别是否使用 Bitiful / 自定义兼容 S3 服务
+  const usingBitiful = !!process.env.BITIFUL_ACCESS_KEY_ID || !!process.env.BITIFUL_ENDPOINT
+  const customEndpointProvided = !!config.s3.endpoint
+  const forcePathStyle = !!config.s3.forcePathStyle
+
+  // 如果是 Bitiful 或强制 path-style 访问，则 endpoint 视为必填
+  if ((usingBitiful || forcePathStyle) && !customEndpointProvided) {
+    missing.push('endpoint')
   }
-  
+
+  if (missing.length > 0) {
+    // 友好提示：列出已解析到的值（避免泄露完整密钥，仅显示是否存在）
+    const debugInfo = {
+      accessKeyId: !!config.s3.accessKeyId,
+      secretAccessKey: !!config.s3.secretAccessKey,
+      bucket: config.s3.bucket ? true : false,
+      region: config.s3.region ? config.s3.region : false,
+      endpoint: config.s3.endpoint ? true : false,
+      usingBitiful
+    }
+    throw new Error(`AWS S3配置缺失: ${missing.join(', ')}; 已检测: ${JSON.stringify(debugInfo)}`)
+  }
+
   return config.s3
 }
 
