@@ -1,6 +1,6 @@
 {
   "name": "bun-hono-server",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A fast and modern web server template built with Bun and Hono",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
@@ -11,8 +11,17 @@
     "db:studio": "drizzle-kit studio",
     "script:admin": "bun run src/scripts/create-admin.ts",
     "docs:generate": "bun run scripts/generate-openapi.ts",
-    "docs:watch": "bun run scripts/generate-openapi.ts --watch"
+    "docs:watch": "bun run scripts/generate-openapi.ts --watch",
+    "publish:docker": "bun run scripts/publish-docker.ts",
+    "version:patch": "bun run scripts/bump-version.mjs patch --tag",
+    "version:minor": "bun run scripts/bump-version.mjs minor --tag",
+    "version:major": "bun run scripts/bump-version.mjs major --tag",
+    "version:prerelease": "bun run scripts/bump-version.mjs prerelease --preid beta --tag"
   },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "packageManager": "bun@1.1.0",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.884.0",
     "@aws-sdk/protocol-http": "^3.374.0",
