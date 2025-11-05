@@ -489,3 +489,21 @@ upload.get('/presign', authMiddleware, adminMiddleware, async (c) => {
     return c.get('error')(500, '生成预签名 URL 失败: ' + error.message)
   }
 })
+
+// 查询上传配置（供前端拿到限制与提示）
+upload.get('/config', authMiddleware, (c) => {
+  try {
+    const service = getUploadService()
+    const { types, extensions, maxSize } = service.getSupportedTypes()
+    const { storageType } = getFullUploadConfig().uploadConfig
+    return c.get('success')({
+      storageType,
+      allowedTypes: types,
+      allowedExtensions: extensions,
+      maxFileSize: maxSize
+    }, '获取上传配置成功')
+  } catch (e: any) {
+    uploadLogger.error({ error: e.message }, '获取上传配置失败')
+    return c.get('error')(500, '获取上传配置失败')
+  }
+})

@@ -41,7 +41,8 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 const defaultUploadConfig = {
   // 基础配置
   storageType: getEnvString('UPLOAD_STORAGE_TYPE', 'local') as StorageType,
-  maxFileSize: getEnvNumber('UPLOAD_MAX_FILE_SIZE', 10 * 1024 * 1024), // 10MB
+  // 兼容旧变量名 UPLOAD_MAX_SIZE
+  maxFileSize: getEnvNumber('UPLOAD_MAX_FILE_SIZE', getEnvNumber('UPLOAD_MAX_SIZE', 10 * 1024 * 1024)), // 10MB
   allowedTypes: getEnvString('UPLOAD_ALLOWED_TYPES', 'image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain').split(',').map(t => t.trim()),
   allowedExtensions: getEnvString('UPLOAD_ALLOWED_EXTENSIONS', '.jpg,.jpeg,.png,.gif,.webp,.pdf,.txt').split(',').map(e => e.trim().toLowerCase()),
   uploadPath: getEnvString('UPLOAD_PATH_PREFIX', 'uploads'),
