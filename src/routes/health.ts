@@ -50,11 +50,11 @@ health.get('/system', (c) => {
       nodeVersion: process.version,
       bunVersion: process.versions.bun || 'N/A',
     },
-    process: {
-      pid: process.pid,
-      uptime: Math.floor(process.uptime()),
-      cwd: process.cwd(),
-    },
+    // process: {
+    //   pid: process.pid,
+    //   uptime: Math.floor(process.uptime()),
+    //   cwd: process.cwd(),
+    // },
     memory: memoryUsage,
   }, '系统信息获取成功')
 })
