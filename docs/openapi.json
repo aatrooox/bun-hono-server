@@ -20,6 +20,771 @@
     }
   },
   "paths": {
+    "/api/fsf/scenes": {
+      "get": {
+        "summary": "==================== 场景管理 ====================",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /api/fsf/scenes",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "pattern": "^[a-z0-9_-]+$"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "handler": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cacheTtl": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 300
+                  },
+                  "status": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "handler"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fsf/scenes/{id}": {
+      "get": {
+        "summary": "GET /api/fsf/scenes/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "PUT /api/fsf/scenes/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50,
+                    "pattern": "^[a-z0-9_-]+$"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "handler": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cacheTtl": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 300
+                  },
+                  "status": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/fsf/scenes/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/fsf/subscriptions": {
+      "get": {
+        "summary": "==================== 订阅管理 ====================",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "POST /api/fsf/subscriptions",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sceneName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "targetType": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "feishu",
+                      "dingtalk",
+                      "wechat_work"
+                    ]
+                  },
+                  "targetUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "targetAuth": {
+                    "type": "string"
+                  },
+                  "triggerType": {
+                    "type": "string",
+                    "enum": [
+                      "cron",
+                      "manual",
+                      "passive"
+                    ]
+                  },
+                  "triggerConfig": {
+                    "type": "string"
+                  },
+                  "template": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 1
+                  },
+                  "retryCount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "default": 3
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "minimum": 5,
+                    "maximum": 300,
+                    "default": 30
+                  }
+                },
+                "required": [
+                  "sceneName",
+                  "name",
+                  "targetType",
+                  "targetUrl",
+                  "triggerType"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fsf/subscriptions/{id}": {
+      "get": {
+        "summary": "GET /api/fsf/subscriptions/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "PUT /api/fsf/subscriptions/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sceneName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "targetType": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "feishu",
+                      "dingtalk",
+                      "wechat_work"
+                    ]
+                  },
+                  "targetUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "targetAuth": {
+                    "type": "string"
+                  },
+                  "triggerType": {
+                    "type": "string",
+                    "enum": [
+                      "cron",
+                      "manual",
+                      "passive"
+                    ]
+                  },
+                  "triggerConfig": {
+                    "type": "string"
+                  },
+                  "template": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 1
+                  },
+                  "retryCount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "default": 3
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "minimum": 5,
+                    "maximum": 300,
+                    "default": 30
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/fsf/subscriptions/{id}",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/fsf/subscriptions/{id}/trigger": {
+      "post": {
+        "summary": "POST /api/fsf/subscriptions/{id}/trigger",
+        "tags": [
+          "fsf"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/fsf/msg/{sceneName}": {
+      "get": {
+        "summary": "GET /api/fsf/msg/{sceneName}",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/health/": {
       "get": {
         "summary": "基础健康检查",
@@ -674,6 +1439,98 @@
     "/api/upload/exists/{path}": {
       "get": {
         "summary": "检查文件是否存在",
+        "tags": [
+          "upload"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/upload/presign": {
+      "get": {
+        "summary": "生成对象存储预签名 URL (支持 s3 / cos)",
+        "tags": [
+          "upload"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "timestamp": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data",
+                    "timestamp"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/upload/config": {
+      "get": {
+        "summary": "查询上传配置（供前端拿到限制与提示）",
         "tags": [
           "upload"
         ],

@@ -15,6 +15,8 @@ import { initDatabase } from './db/migrate'
 import type { AppContext } from './types'
 import { logger } from './utils/logger'
 import { Config } from './config'
+import { initDataSources } from './services/notification/dataSources'
+import { initScheduler } from './services/notification/scheduler'
 
 // 创建 Hono 应用
 const app = new Hono<AppContext>()
@@ -81,9 +83,21 @@ app.notFound((c) => {
 initDatabase()
   .then(() => {
     logger.info('Database initialized successfully')
+    
+    // 初始化 FSF 系统
+    return initDataSources()
+  })
+  .then(() => {
+    logger.info('FSF data sources initialized successfully')
+    
+    // 初始化定时任务调度器
+    return initScheduler()
+  })
+  .then(() => {
+    logger.info('FSF scheduler initialized successfully')
   })
   .catch((error) => {
-    logger.error({ error }, 'Database initialization failed')
+    logger.error({ error }, 'Initialization failed')
     process.exit(1)
   })
 

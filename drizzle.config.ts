@@ -5,6 +5,6 @@ export default defineConfig({
   out: './src/db/migrations',
   driver: 'better-sqlite',
   dbCredentials: {
-    url: process.env.DATABASE_URL || './database.sqlite'
+    url: process.env.DATABASE_URL || './db.dev.sqlite'
   }
 })

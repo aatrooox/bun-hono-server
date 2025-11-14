@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite'
 import * as schema from './schema'
 
 // 从环境变量获取数据库URL，如果没有则使用默认值
-const databaseUrl = process.env.DATABASE_URL || './database.sqlite'
+const databaseUrl = process.env.DATABASE_URL || './db.dev.sqlite'
 
 // 创建 SQLite 数据库连接
 const sqlite = new Database(databaseUrl, { create: true })

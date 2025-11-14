@@ -4,6 +4,8 @@ import auth from './auth'
 import users from './users'
 import upload from './upload'
 import health from './health'
+import fsf from './fsf'
+import message from './message'
 
 // 创建 API 路由器
 const api = new Hono()
@@ -21,7 +23,8 @@ api.get('/', (c) => {
       auth: '/api/auth',
       users: '/api/users',
       upload: '/api/upload',
-  health: '/api/health'
+      health: '/api/health',
+      fsf: '/api/fsf'
     }
   }, 'API 服务正常运行')
 })
@@ -31,5 +34,7 @@ api.route('/auth', auth)
 api.route('/users', users)
 api.route('/upload', upload)
 api.route('/health', health)
+api.route('/fsf', fsf)
+api.route('/fsf/msg', message)
 
 export default api

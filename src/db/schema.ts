@@ -77,3 +77,53 @@ export type NewRefreshToken = typeof refreshTokens.$inferInsert
 // OAuth 账户类型
 export type OAuthAccount = typeof oauthAccounts.$inferSelect
 export type NewOAuthAccount = typeof oauthAccounts.$inferInsert
+
+// ==================== FSF 通知系统 ====================
+
+// 场景表（数据源场景）
+export const notificationScenes = sqliteTable('notification_scenes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(), // 场景名称（语义化，如 weibo, news）
+  description: text('description'), // 场景描述
+  handler: text('handler').notNull(), // 处理器函数名（代码中的函数名）
+  cacheTtl: integer('cache_ttl').notNull().default(300), // 缓存时长(秒)，0=不缓存
+  status: integer('status').notNull().default(1), // 状态：0=禁用 1=启用
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`)
+})
+
+// 订阅表（推送规则）
+export const notificationSubscriptions = sqliteTable('notification_subscriptions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sceneName: text('scene_name').notNull().references(() => notificationScenes.name, { onDelete: 'cascade' }),
+  name: text('name').notNull(), // 订阅名称（自定义标识）
+  
+  // 推送目标配置
+  targetType: text('target_type').notNull(), // 类型: http | feishu | dingtalk | wechat_work
+  targetUrl: text('target_url').notNull(), // 目标地址
+  targetAuth: text('target_auth'), // 认证配置（JSON）
+  
+  // 触发配置
+  triggerType: text('trigger_type').notNull(), // 触发类型: cron | manual | passive
+  triggerConfig: text('trigger_config'), // 触发配置（JSON，如 cron 表达式）
+  
+  // 数据转换
+  template: text('template'), // 数据模板（用于格式化输出）
+  
+  // 其他配置
+  status: integer('status').notNull().default(1), // 状态：0=禁用 1=启用
+  retryCount: integer('retry_count').notNull().default(3), // 失败重试次数
+  timeout: integer('timeout').notNull().default(30), // 请求超时(秒)
+  
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  lastTriggeredAt: text('last_triggered_at'), // 最后触发时间
+  nextTriggerAt: text('next_trigger_at'), // 下次触发时间
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`)
+})
+
+// FSF 类型导出
+export type NotificationScene = typeof notificationScenes.$inferSelect
+export type NewNotificationScene = typeof notificationScenes.$inferInsert
+export type NotificationSubscription = typeof notificationSubscriptions.$inferSelect
+export type NewNotificationSubscription = typeof notificationSubscriptions.$inferInsert

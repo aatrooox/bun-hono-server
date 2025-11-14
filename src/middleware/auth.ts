@@ -33,6 +33,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
         gender: users.gender,
         birthday: users.birthday,
         bio: users.bio,
+        role: users.role,
         status: users.status
       })
       .from(users)
@@ -94,6 +95,7 @@ export const optionalAuthMiddleware = async (c: Context, next: Next) => {
           gender: users.gender,
           birthday: users.birthday,
           bio: users.bio,
+          role: users.role,
           status: users.status
         })
         .from(users)
