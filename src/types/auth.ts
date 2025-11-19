@@ -71,6 +71,7 @@ export interface LoginResponse {
 // token 刷新响应类型
 export interface RefreshTokenResponse {
   accessToken: string
+  refreshToken?: string // 新的 refresh token (如果启用了轮换)
   expiresIn: number // access token 过期时间（秒）
 }
 

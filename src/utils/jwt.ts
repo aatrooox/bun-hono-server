@@ -1,8 +1,9 @@
 import * as jwt from 'jsonwebtoken'
 import { JwtPayload } from '../types/auth'
 import { randomUUID } from 'crypto'
+import Config from '../config'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
+const JWT_SECRET = Config.JWT_SECRET
 const ACCESS_TOKEN_EXPIRES_IN = '15m' // 15 分钟
 const REFRESH_TOKEN_EXPIRES_IN = '7d' // 7 天
 

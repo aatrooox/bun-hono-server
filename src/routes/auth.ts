@@ -217,14 +217,36 @@ auth.post('/refresh', zValidator('json', refreshTokenSchema), async (c) => {
     throw new HTTPException(401, { message: '用户账户已被禁用' })
   }
 
-  // 生成新的 access token
-  const newAccessToken = JwtUtils.generateAccessToken({
+  // 实施 Refresh Token Rotation (令牌轮换)
+  // 1. 撤销当前使用的 refresh token
+  await db
+    .update(refreshTokens)
+    .set({ 
+      isRevoked: 1,
+      updatedAt: new Date().toISOString()
+    })
+    .where(eq(refreshTokens.id, tokenRecord.id))
+
+  // 2. 生成新的一对 token
+  const tokenPair = JwtUtils.generateTokenPair({
     userId: tokenRecord.user.id,
     email: tokenRecord.user.email
   })
 
+  // 3. 存储新的 refresh token
+  const refreshTokenExpiresAt = JwtUtils.getRefreshTokenExpiresAt()
+  await db.insert(refreshTokens).values({
+    id: randomUUID(),
+    userId: tokenRecord.user.id,
+    token: tokenPair.refreshToken,
+    expiresAt: refreshTokenExpiresAt.toISOString(),
+    deviceInfo: c.req.header('User-Agent') || 'Unknown',
+    ipAddress: c.req.header('X-Forwarded-For') || c.req.header('X-Real-IP') || 'Unknown'
+  })
+
   const response: RefreshTokenResponse = {
-    accessToken: newAccessToken,
+    accessToken: tokenPair.accessToken,
+    refreshToken: tokenPair.refreshToken,
     expiresIn: 15 * 60 // 15 分钟
   }
 
