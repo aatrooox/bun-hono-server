@@ -11,7 +11,7 @@ import { authMiddleware } from '../middleware/auth'
 import { adminMiddleware } from '../middleware/admin'
 import { db } from '../db'
 import { notificationScenes, notificationSubscriptions } from '../db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, sql } from 'drizzle-orm'
 import { logger } from '../utils/logger'
 import {
   createSceneSchema,
@@ -21,7 +21,8 @@ import {
 } from '../types/notification'
 import { 
   triggerSubscription, 
-  updateSubscriptionSchedule
+  updateSubscriptionSchedule,
+  broadcastToScene
 } from '../services/notification'
 import { clearSceneCache, getRegisteredHandlers } from '../services/notification/dataSources'
 
@@ -36,15 +37,28 @@ const fsfLogger = logger.child({ module: 'fsf-api' })
  */
 fsf.get('/scenes', authMiddleware, adminMiddleware, async (c) => {
   try {
-    const scenes = await db
-      .select()
-      .from(notificationScenes)
-      .orderBy(desc(notificationScenes.createdAt))
+    const page = parseInt(c.req.query('page') || '1')
+    const limit = parseInt(c.req.query('limit') || '20')
+    const offset = (page - 1) * limit
+
+    const [scenes, total] = await Promise.all([
+      db.select()
+        .from(notificationScenes)
+        .orderBy(desc(notificationScenes.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(notificationScenes)
+        .then(res => res[0].count)
+    ])
     
     const handlers = getRegisteredHandlers()
     
     return c.get('success')({
-      scenes,
+      list: scenes,
+      total,
+      page,
+      limit,
       registeredHandlers: handlers
     }, '获取成功')
   } catch (error) {
@@ -184,6 +198,45 @@ fsf.delete('/scenes/:id', authMiddleware, adminMiddleware, async (c) => {
   }
 })
 
+/**
+ * 广播场景消息
+ * POST /api/fsf/scenes/:id/broadcast
+ */
+fsf.post('/scenes/:id/broadcast', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'))
+    
+    const scene = await db
+      .select()
+      .from(notificationScenes)
+      .where(eq(notificationScenes.id, id))
+      .get()
+    
+    if (!scene) {
+      return c.get('error')(404, '场景不存在')
+    }
+    
+    fsfLogger.info({
+      sceneId: id,
+      sceneName: scene.name,
+      userId: c.get('user')?.id
+    }, '手动触发场景广播')
+    
+    // 异步执行
+    broadcastToScene(scene.name).catch(error => {
+      fsfLogger.error({ 
+        sceneName: scene.name, 
+        error: (error as Error).message 
+      }, '异步广播失败')
+    })
+    
+    return c.get('success')(null, '广播任务已下发')
+  } catch (error) {
+    fsfLogger.error({ error: (error as Error).message }, '触发广播失败')
+    return c.get('error')(500, `触发失败: ${(error as Error).message}`)
+  }
+})
+
 // ==================== 订阅管理 ====================
 
 /**
@@ -192,17 +245,30 @@ fsf.delete('/scenes/:id', authMiddleware, adminMiddleware, async (c) => {
  */
 fsf.get('/subscriptions', authMiddleware, adminMiddleware, async (c) => {
   try {
+    const page = parseInt(c.req.query('page') || '1')
+    const limit = parseInt(c.req.query('limit') || '20')
+    const offset = (page - 1) * limit
     const sceneName = c.req.query('sceneName') // 可选过滤
     
     let query = db.select().from(notificationSubscriptions)
+    let countQuery = db.select({ count: sql<number>`count(*)` }).from(notificationSubscriptions)
     
     if (sceneName) {
       query = query.where(eq(notificationSubscriptions.sceneName, sceneName)) as any
+      countQuery = countQuery.where(eq(notificationSubscriptions.sceneName, sceneName)) as any
     }
     
-    const subscriptions = await query.orderBy(desc(notificationSubscriptions.createdAt))
+    const [subscriptions, total] = await Promise.all([
+      query.orderBy(desc(notificationSubscriptions.createdAt)).limit(limit).offset(offset),
+      countQuery.then(res => res[0].count)
+    ])
     
-    return c.get('success')(subscriptions, '获取成功')
+    return c.get('success')({
+      list: subscriptions,
+      total,
+      page,
+      limit
+    }, '获取成功')
   } catch (error) {
     fsfLogger.error({ error: (error as Error).message }, '获取订阅列表失败')
     return c.get('error')(500, '获取订阅列表失败')
@@ -261,9 +327,15 @@ fsf.post('/subscriptions', authMiddleware, adminMiddleware, zValidator('json', c
       })
       .returning()
     
-    // 如果是 cron 类型，注册定时任务
-    if (data.triggerType === 'cron' && data.status === 1) {
-      await updateSubscriptionSchedule(result[0].id)
+    try {
+      // 如果是 cron 类型，注册定时任务
+      if (data.triggerType === 'cron' && data.status === 1) {
+        await updateSubscriptionSchedule(result[0].id)
+      }
+    } catch (error) {
+      // 回滚：删除刚创建的订阅
+      await db.delete(notificationSubscriptions).where(eq(notificationSubscriptions.id, result[0].id))
+      throw error
     }
     
     fsfLogger.info({
@@ -307,8 +379,25 @@ fsf.put('/subscriptions/:id', authMiddleware, adminMiddleware, zValidator('json'
       .where(eq(notificationSubscriptions.id, id))
       .returning()
     
-    // 更新定时任务
-    await updateSubscriptionSchedule(id)
+    try {
+      // 更新定时任务
+      await updateSubscriptionSchedule(id)
+    } catch (error) {
+      // 回滚：恢复旧数据
+      await db
+        .update(notificationSubscriptions)
+        .set(subscription) // 恢复所有字段
+        .where(eq(notificationSubscriptions.id, id))
+      
+      // 尝试恢复旧的定时任务
+      try {
+        await updateSubscriptionSchedule(id)
+      } catch (e) {
+        fsfLogger.error({ error: (e as Error).message }, '回滚定时任务失败')
+      }
+      
+      throw error
+    }
     
     fsfLogger.info({ subscriptionId: id, subscriptionName: subscription.name }, '订阅更新成功')
     
@@ -377,9 +466,15 @@ fsf.post('/subscriptions/:id/trigger', authMiddleware, adminMiddleware, async (c
       userId: c.get('user')?.id
     }, '手动触发订阅')
     
-    await triggerSubscription(id)
+    // 异步执行，不阻塞接口
+    triggerSubscription(id).catch(error => {
+      fsfLogger.error({ 
+        subscriptionId: id, 
+        error: (error as Error).message 
+      }, '异步触发订阅失败')
+    })
     
-    return c.get('success')(null, '推送已触发')
+    return c.get('success')(null, '推送任务已下发')
   } catch (error) {
     fsfLogger.error({ error: (error as Error).message }, '触发订阅失败')
     return c.get('error')(500, `触发失败: ${(error as Error).message}`)

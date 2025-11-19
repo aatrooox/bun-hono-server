@@ -1,377 +1,57 @@
-# FSF (Flexible Scene Feed) 消息推送系统
+# FSF (Flexible Scene Feed) 灵活场景推送系统 - 功能说明书
 
-FSF 是一个灵活的场景化消息推送系统，支持多种数据源、多种推送目标和多种触发方式。
+## 1. 系统概述
+FSF 是一个基于 "场景(Scene)" + "订阅(Subscription)" 模式的灵活消息推送系统。它允许管理员配置不同的数据源（场景），并定义灵活的推送规则（订阅），将数据推送到飞书、钉钉、企业微信或自定义 Webhook。
 
-## 核心概念
+## 2. 核心业务逻辑
 
-### 1. 场景 (Scene)
-场景是数据的语义化标识，每个场景对应一个数据处理函数。例如：
-- `weibo`: 微博热搜榜单
-- `news`: 新闻头条
+### 2.1 概念模型
+*   **场景 (Scene)**: 数据源的抽象。定义了"数据从哪里来" (Handler) 以及"缓存多久" (TTL)。
+    *   *例子*: 微博热搜、GitHub Trending、系统告警。
+*   **订阅 (Subscription)**: 推送规则的配置。定义了"数据推给谁" (Target)、"什么格式" (Template) 以及"何时推送" (Trigger)。
+    *   *例子*: "每天早上9点把微博热搜推送到飞书群"。
 
-### 2. 订阅 (Subscription)
-订阅定义了如何将场景数据推送到目标系统，包括：
-- 推送目标（飞书/钉钉/企业微信/HTTP Webhook）
-- 触发方式（定时/手动/被动）
-- 数据模板
-- 重试策略
+### 2.2 数据流转
+1.  **触发**: 定时任务(Cron) 或 手动触发(Manual) 启动流程。
+2.  **获取数据**: 系统根据订阅关联的场景，调用对应的数据处理器(Handler)。
+    *   *缓存机制*: 优先读取 Redis 缓存，未命中则调用 Handler 并写入缓存。
+3.  **适配与渲染**: 获取到的数据根据订阅配置的模板(Template)进行渲染。
+4.  **推送**: 将渲染后的数据发送到目标地址(Target URL)。
+    *   *重试机制*: 推送失败会自动重试 (默认3次)。
 
-### 3. 触发类型
+## 3. 功能特性
 
-#### Cron (定时触发)
-使用 cron 表达式定时推送数据
-```json
-{
-  "triggerType": "cron",
-  "triggerConfig": {
-    "cron": "*/30 * * * *",  // 每30分钟
-    "timezone": "Asia/Shanghai"
-  }
-}
-```
+### 3.1 触发方式
+1.  **Cron 定时触发**: 支持标准的 Cron 表达式 (如 `0 9 * * *`)，由系统内置调度器自动执行。
+    *   *特性*: 订阅创建/更新时自动注册任务，支持秒级精度。
+    *   *校验*: 在配置阶段即严格校验 Cron 表达式的合法性。
+2.  **Manual 手动触发**: 管理员通过 API 立即触发一次推送。
+    *   *特性*: **异步执行**，接口立即返回，后台处理推送任务，避免阻塞。
+3.  **Passive 被动拉取**: 第三方系统携带 Token 主动调用 API 获取场景数据。
 
-#### Manual (手动触发)
-通过 API 手动触发推送
-```bash
-POST /api/fsf/subscriptions/:id/trigger
-```
+### 3.2 推送目标 (Target)
+支持以下类型，且具备 **SSRF (服务端请求伪造) 防护**，禁止配置内网 IP (如 127.0.0.1, 192.168.x.x) 作为目标地址。
+*   **Feishu (飞书)**: 适配飞书群机器人 Webhook。
+*   **DingTalk (钉钉)**: 适配钉钉群机器人 Webhook。
+*   **WeChatWork (企业微信)**: 适配企业微信群机器人 Webhook。
+*   **HTTP**: 通用 Webhook，支持自定义 Header 和 Auth (Bearer/Basic)。
 
-#### Passive (被动拉取)
-第三方系统主动拉取数据
-```bash
-GET /api/fsf/msg/:sceneName
-Authorization: Bearer YOUR_TOKEN
-```
+### 3.3 安全机制
+*   **权限控制**: 场景和订阅管理仅限 **Admin** 角色。
+*   **网络安全**: 目标 URL 强制校验，拒绝私有 IP 地址。
+*   **事务一致性**: 订阅配置与定时任务状态保持强一致，数据库操作失败或任务注册失败会自动回滚。
+*   **Token 安全**: 登录及刷新 Token 采用轮换机制 (Rotation)，最大限度防止令牌泄露。
 
-## API 接口
+## 4. 数据源开发指南
+开发者只需在 `src/services/notification/sources/` 下添加新的处理函数，并在 `dataSources.ts` 中注册即可。系统会自动识别并列出可用的 Handler。
 
-### 场景管理
-
-#### 获取场景列表
-```bash
-GET /api/fsf/scenes
-Authorization: Bearer ADMIN_TOKEN
-```
-
-#### 创建场景
-```bash
-POST /api/fsf/scenes
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "name": "custom-scene",
-  "description": "自定义场景",
-  "handler": "customHandler",
-  "cacheTtl": 300,
-  "status": 1
-}
-```
-
-#### 更新场景
-```bash
-PUT /api/fsf/scenes/:id
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "description": "更新描述",
-  "cacheTtl": 600
-}
-```
-
-#### 删除场景
-```bash
-DELETE /api/fsf/scenes/:id
-Authorization: Bearer ADMIN_TOKEN
-```
-
-### 订阅管理
-
-#### 获取订阅列表
-```bash
-GET /api/fsf/subscriptions?sceneName=weibo
-Authorization: Bearer ADMIN_TOKEN
-```
-
-#### 创建订阅 - 飞书定时推送
-```bash
-POST /api/fsf/subscriptions
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "sceneName": "weibo",
-  "name": "飞书微博推送",
-  "targetType": "feishu",
-  "targetUrl": "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_TOKEN",
-  "triggerType": "cron",
-  "triggerConfig": {
-    "cron": "0 9,12,18 * * *",  // 每天9点、12点、18点
-    "timezone": "Asia/Shanghai"
-  },
-  "template": {
-    "title": "微博热搜",
-    "content": "{{content}}"
-  },
-  "status": 1,
-  "retryCount": 3,
-  "timeout": 10000
-}
-```
-
-#### 创建订阅 - 钉钉手动触发
-```bash
-POST /api/fsf/subscriptions
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "sceneName": "news",
-  "name": "钉钉新闻推送",
-  "targetType": "dingtalk",
-  "targetUrl": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
-  "triggerType": "manual",
-  "template": {
-    "title": "新闻头条",
-    "content": "{{content}}"
-  },
-  "status": 1,
-  "retryCount": 3,
-  "timeout": 10000
-}
-```
-
-#### 创建订阅 - HTTP Webhook
-```bash
-POST /api/fsf/subscriptions
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "sceneName": "weibo",
-  "name": "第三方系统推送",
-  "targetType": "http",
-  "targetUrl": "https://your-api.com/webhook",
-  "targetAuth": {
-    "type": "bearer",
-    "token": "YOUR_API_TOKEN"
-  },
-  "triggerType": "manual",
-  "status": 1,
-  "retryCount": 3,
-  "timeout": 15000
-}
-```
-
-#### 更新订阅
-```bash
-PUT /api/fsf/subscriptions/:id
-Authorization: Bearer ADMIN_TOKEN
-Content-Type: application/json
-
-{
-  "status": 0  // 禁用订阅
-}
-```
-
-#### 删除订阅
-```bash
-DELETE /api/fsf/subscriptions/:id
-Authorization: Bearer ADMIN_TOKEN
-```
-
-#### 手动触发订阅
-```bash
-POST /api/fsf/subscriptions/:id/trigger
-Authorization: Bearer ADMIN_TOKEN
-```
-
-### 被动拉取数据
-
-```bash
-GET /api/fsf/msg/weibo
-Authorization: Bearer YOUR_TOKEN
-
-# 响应示例
-{
-  "success": true,
-  "message": "获取成功",
-  "data": {
-    "scene": "weibo",
-    "timestamp": "2024-01-13T09:30:00.000Z",
-    "content": {
-      "items": [...]
-    }
-  }
-}
-```
-
-## 数据源开发
-
-在 `src/services/notification/sources/` 目录下创建数据源：
-
+### 示例代码
 ```typescript
-// src/services/notification/sources/custom.ts
-export async function fetchCustomData() {
-  // 从外部 API 获取数据
-  const response = await fetch('https://api.example.com/data')
-  const data = await response.json()
-  
-  // 转换为标准格式
-  return {
-    items: data.map(item => ({
-      title: item.title,
-      url: item.link,
-      timestamp: item.createdAt
-    }))
-  }
+// 1. 定义获取数据的函数
+export async function fetchMyData() {
+  return { title: "Hello", value: 123 };
 }
+
+// 2. 在 dataSources.ts 中注册
+registerDataSource('my-source', fetchMyData);
 ```
-
-在 `src/services/notification/dataSources.ts` 中注册：
-
-```typescript
-export async function initDataSources() {
-  // ...现有代码
-  
-  const { fetchCustomData } = await import('./sources/custom')
-  registerDataSource('custom', fetchCustomData)
-}
-```
-
-创建对应场景：
-
-```bash
-POST /api/fsf/scenes
-{
-  "name": "custom-data",
-  "description": "自定义数据源",
-  "handler": "custom",
-  "cacheTtl": 300,
-  "status": 1
-}
-```
-
-## 推送目标类型
-
-### 1. 飞书 (feishu)
-```json
-{
-  "targetType": "feishu",
-  "targetUrl": "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_TOKEN",
-  "template": {
-    "title": "标题",
-    "content": "{{content}}"  // 支持模板变量
-  }
-}
-```
-
-### 2. 钉钉 (dingtalk)
-```json
-{
-  "targetType": "dingtalk",
-  "targetUrl": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
-  "template": {
-    "title": "标题",
-    "content": "{{content}}"
-  }
-}
-```
-
-### 3. 企业微信 (wechatwork)
-```json
-{
-  "targetType": "wechatwork",
-  "targetUrl": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY",
-  "template": {
-    "content": "{{content}}"
-  }
-}
-```
-
-### 4. HTTP Webhook (http)
-```json
-{
-  "targetType": "http",
-  "targetUrl": "https://your-api.com/webhook",
-  "targetAuth": {
-    "type": "bearer",  // 或 "basic"
-    "token": "YOUR_TOKEN"
-    // 如果是 basic: {"username": "xxx", "password": "xxx"}
-  }
-}
-```
-
-## 模板系统
-
-在 `template` 字段中使用 `{{变量名}}` 引用数据源返回的字段：
-
-```json
-{
-  "template": {
-    "title": "微博热搜 TOP 10",
-    "content": "{{content}}"
-  }
-}
-```
-
-对于 HTTP 类型，`template` 为 `null` 时直接发送原始数据。
-
-## Cron 表达式示例
-
-```
-*/30 * * * *    # 每30分钟
-0 * * * *       # 每小时整点
-0 9,12,18 * * * # 每天9点、12点、18点
-0 9 * * 1-5     # 周一到周五的9点
-0 0 * * 0       # 每周日0点
-```
-
-## 初始化
-
-运行初始化脚本创建示例场景和订阅：
-
-```bash
-bun run src/scripts/init-fsf.ts
-```
-
-这将创建：
-- 场景: `weibo`, `news`
-- 示例订阅（默认禁用，需配置 webhook URL 后启用）
-
-## 日志
-
-FSF 系统日志输出到：
-- 控制台: 结构化 JSON 格式
-- 文件: `logs/app.log` (自动按日期滚动)
-
-## 注意事项
-
-1. **权限要求**: 所有管理接口需要管理员权限
-2. **Webhook 安全**: 妥善保管 webhook URL 和认证信息
-3. **缓存策略**: 合理设置 `cacheTtl` 避免频繁请求外部 API
-4. **重试机制**: `retryCount` 建议设置为 3，避免无限重试
-5. **超时设置**: `timeout` 建议 10-15 秒，避免长时间阻塞
-6. **定时任务**: 启用 cron 订阅会立即注册定时任务
-7. **被动拉取**: 第三方系统需携带有效 JWT Token
-
-## 故障排查
-
-### 订阅未触发
-1. 检查订阅 `status` 是否为 1
-2. 检查场景 `status` 是否为 1
-3. 检查 cron 表达式是否正确
-4. 查看日志输出
-
-### 推送失败
-1. 检查 webhook URL 是否正确
-2. 检查网络连接
-3. 检查认证信息
-4. 查看重试日志
-
-### 数据获取失败
-1. 检查数据源处理函数是否正常
-2. 检查外部 API 是否可用
-3. 检查缓存是否过期
-4. 查看数据源日志
